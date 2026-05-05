@@ -364,12 +364,95 @@ X-API-Key: <YOUR_API_KEY>
 | T4.2 | 实时统计计算 | 完成 |
 | T4.3 | Socket.IO实时推送 | 完成 |
 
-### 6.5 阶段五：待完成
+### 6.5 阶段五：核心功能增强 ✅
 
 | 任务 | 描述 | 状态 |
 |-----|------|------|
-| T5.1 | Web Dashboard前端 | 待开发 |
-| T5.2 | 单元测试编写 | 待开发 |
+| T5.1 | 流式响应（SSE）支持 | 完成 |
+| T5.2 | Embeddings接口代理 | 完成 |
+| T5.3 | 自动重试与超时控制 | 完成 |
+| T5.4 | Prompt缓存功能 | 完成 |
+| T5.5 | 自动路由与负载均衡 | 完成 |
+
+#### T5.1 流式响应（SSE）支持
+- 文件：[src/services/providerService.js](file:///workspace/src/services/providerService.js#L60-L121)
+- 路由：[src/routes/chat.js](file:///workspace/src/routes/chat.js#L13-L135)
+- 功能：支持OpenAI流式输出，透传SSE流给客户端
+- 使用：请求中添加 `stream: true` 参数
+
+#### T5.2 Embeddings接口代理
+- 文件：[src/services/providerService.js](file:///workspace/src/services/providerService.js#L123-L159)
+- 路由：[src/routes/chat.js](file:///workspace/src/routes/chat.js#L137-L190)
+- 功能：支持文本嵌入接口调用
+
+#### T5.3 自动重试与超时控制
+- 文件：[src/utils/retry.js](file:///workspace/src/utils/retry.js)
+- 功能：指数退避重试，支持429/5xx错误自动重试
+- 配置：最大重试3次，初始延迟1秒，最大延迟10秒
+
+#### T5.4 Prompt缓存功能
+- 文件：[src/utils/cache.js](file:///workspace/src/utils/cache.js)
+- 功能：相同请求自动返回缓存结果，节省费用
+- TTL：默认1小时
+
+#### T5.5 自动路由与负载均衡
+- 文件：[src/services/routerService.js](file:///workspace/src/services/routerService.js)
+- 功能：无需指定provider_id，自动选择最佳厂商
+
+---
+
+### 6.6 阶段六：安全与隐私保护 ✅
+
+| 任务 | 描述 | 状态 |
+|-----|------|------|
+| T6.1 | 操作审计日志 | 完成 |
+| T6.2 | 用户配额管理 | 完成 |
+| T6.3 | API Key细粒度权限 | 完成 |
+| T6.4 | IP白名单 | 完成 |
+
+#### T6.1 操作审计日志
+- 文件：[src/services/auditService.js](file:///workspace/src/services/auditService.js)
+- 路由：[src/routes/audit.js](file:///workspace/src/routes/audit.js)
+- 功能：记录用户操作，支持追溯
+
+#### T6.2 用户配额管理
+- 文件：[src/services/quotaService.js](file:///workspace/src/services/quotaService.js)
+- 路由：[src/routes/cost.js](file:///workspace/src/routes/cost.js)
+- 功能：每日请求数、月度费用、总tokens限制
+
+#### T6.3 API Key细粒度权限
+- 支持：allowed_models、allowed_providers
+- 文件：[src/middleware/auth.js](file:///workspace/src/middleware/auth.js#L60-L80)
+
+#### T6.4 IP白名单
+- 文件：[src/middleware/auth.js](file:///workspace/src/middleware/auth.js#L49-L54)
+
+---
+
+### 6.7 阶段七：费用与成本管理 ✅
+
+| 任务 | 描述 | 状态 |
+|-----|------|------|
+| T7.1 | 费用预计算与统计 | 完成 |
+| T7.2 | 价格配置管理 | 完成 |
+| T7.3 | 月度账单统计 | 完成 |
+
+#### T7.1 费用预计算与统计
+- 文件：[src/services/costService.js](file:///workspace/src/services/costService.js)
+- 功能：自动计算每次调用费用，记录到requests表
+
+#### T7.2 价格配置管理
+- 默认价格：内置GPT-4、GPT-3.5、Claude系列模型价格
+- 支持自定义价格配置
+
+---
+
+### 6.8 阶段八：待完成
+
+| 任务 | 描述 | 状态 |
+|-----|------|------|
+| T8.1 | Web Dashboard前端 | 待开发 |
+| T8.2 | 单元测试编写 | 待开发 |
 
 ---
 

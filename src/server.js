@@ -12,6 +12,8 @@ const apiKeyRoutes = require('./routes/apiKeys');
 const chatRoutes = require('./routes/chat');
 const providerRoutes = require('./routes/providers');
 const monitorRoutes = require('./routes/monitor');
+const costRoutes = require('./routes/cost');
+const auditRoutes = require('./routes/audit');
 
 const app = express();
 const server = http.createServer(app);
@@ -31,6 +33,8 @@ app.use('/api/keys', apiKeyRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/providers', providerRoutes);
 app.use('/api/monitor', monitorRoutes);
+app.use('/api/cost', costRoutes);
+app.use('/api/audit', auditRoutes);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -116,6 +120,10 @@ const initDatabase = async () => {
         api_key VARCHAR(255) NOT NULL,
         base_url VARCHAR(255) NOT NULL,
         enabled BOOLEAN DEFAULT TRUE,
+        last_success_at TIMESTAMP,
+        last_failed_at TIMESTAMP,
+        avg_latency INTEGER,
+        rate_limit INTEGER DEFAULT 1000,
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
@@ -130,14 +138,71 @@ const initDatabase = async () => {
         latency INTEGER,
         prompt_tokens INTEGER,
         completion_tokens INTEGER,
+        cost NUMERIC(10,4),
         error_message TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS api_keys (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        key_value VARCHAR(64) UNIQUE NOT NULL,
+        name VARCHAR(100),
+        enabled BOOLEAN DEFAULT TRUE,
+        rate_limit INTEGER DEFAULT 1000,
+        allowed_models TEXT[],
+        allowed_providers TEXT[],
+        ip_whitelist TEXT[],
+        created_at TIMESTAMP DEFAULT NOW(),
+        expires_at TIMESTAMP
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS prices (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        provider_name VARCHAR(100) NOT NULL,
+        model VARCHAR(100) NOT NULL,
+        prompt_price NUMERIC(10,6) NOT NULL,
+        completion_price NUMERIC(10,6) NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(provider_name, model)
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_quotas (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+        daily_requests INTEGER DEFAULT 1000,
+        monthly_cost_limit NUMERIC(10,2) DEFAULT 100,
+        total_tokens_limit BIGINT DEFAULT 1000000,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        action VARCHAR(100) NOT NULL,
+        resource_type VARCHAR(50),
+        resource_id UUID,
+        details JSONB,
+        ip_address INET,
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
 
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_requests_api_key_id ON requests(api_key_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_requests_created_at ON requests(created_at)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_requests_provider ON requests(provider)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_providers_user_id ON providers(user_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at)`);
 
     logger.info('Database tables initialized');
   } catch (error) {

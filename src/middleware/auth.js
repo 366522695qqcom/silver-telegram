@@ -40,8 +40,43 @@ const authenticateApiKey = async (req, res, next) => {
     return res.status(401).json({ error: 'Invalid or disabled API key' });
   }
 
-  req.apiKey = result.rows[0];
+  const apiKeyData = result.rows[0];
+
+  if (apiKeyData.expires_at && new Date(apiKeyData.expires_at) < new Date()) {
+    return res.status(401).json({ error: 'API key has expired' });
+  }
+
+  if (apiKeyData.ip_whitelist && apiKeyData.ip_whitelist.length > 0) {
+    const clientIp = req.ip || req.connection.remoteAddress;
+    if (!apiKeyData.ip_whitelist.includes(clientIp)) {
+      return res.status(403).json({ error: 'IP address not whitelisted' });
+    }
+  }
+
+  req.apiKey = apiKeyData;
   next();
 };
 
-module.exports = { authenticateToken, authenticateApiKey };
+const checkApiKeyPermissions = (model, provider) => {
+  return async (req, res, next) => {
+    if (!req.apiKey) {
+      return res.status(401).json({ error: 'API key required' });
+    }
+
+    if (req.apiKey.allowed_models && req.apiKey.allowed_models.length > 0) {
+      if (!req.apiKey.allowed_models.includes(model)) {
+        return res.status(403).json({ error: `Model ${model} is not allowed for this API key` });
+      }
+    }
+
+    if (req.apiKey.allowed_providers && req.apiKey.allowed_providers.length > 0) {
+      if (!req.apiKey.allowed_providers.includes(provider)) {
+        return res.status(403).json({ error: `Provider ${provider} is not allowed for this API key` });
+      }
+    }
+
+    next();
+  };
+};
+
+module.exports = { authenticateToken, authenticateApiKey, checkApiKeyPermissions };
