@@ -338,8 +338,23 @@ X-API-Key: <YOUR_API_KEY>
 |-----|------|------|
 | T3.1 | ProviderService通用代理 | 完成 |
 | T3.2 | 厂商配置CRUD | 完成 |
-| T3.3 | 连通性测试接口 | 完成 |
-| T3.4 | 模型列表获取接口 | 完成 |
+| T3.3 | 连通性测试接口 | **已实现** |
+| T3.4 | 模型列表获取接口 | **已实现** |
+
+#### T3.3 连通性测试接口
+- 文件：[src/services/providerService.js](file:///workspace/src/services/providerService.js#L4-L26)
+- 路由：[src/routes/providers.js](file:///workspace/src/routes/providers.js#L81-L104)
+- 功能：调用厂商 /models 端点验证 API Key 有效性
+- 支持类型：openai (200), anthropic (直接成功)
+- 返回：success, status, message
+
+#### T3.4 模型列表获取接口
+- 文件：[src/services/providerService.js](file:///workspace/src/services/providerService.js#L28-L57)
+- 路由：[src/routes/providers.js](file:///workspace/src/routes/providers.js#L106-L129)
+- 功能：从厂商 API 获取可用模型列表
+- 支持格式：OpenAI data 标准格式
+- 返回：models 数组，每个元素包含 id, name, owned_by
+
 
 ### 6.4 阶段四：监控系统 ✅
 
