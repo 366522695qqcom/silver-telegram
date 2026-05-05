@@ -1,12 +1,9 @@
-const pool = require('../config/database');
+const { query, run } = require('../utils/db');
 
 class RouterService {
   async findProviderByModel(userId, model) {
-    const result = await pool.query(
-      `SELECT p.* FROM providers p 
-       JOIN api_keys ak ON p.user_id = ak.user_id 
-       WHERE p.user_id = $1 AND p.enabled = true
-       ORDER BY p.created_at DESC`,
+    const result = await query(
+      'SELECT p.* FROM providers p JOIN api_keys ak ON p.user_id = ak.user_id WHERE p.user_id = ? AND p.enabled = 1 ORDER BY p.created_at DESC',
       [userId]
     );
 
@@ -31,14 +28,17 @@ class RouterService {
   }
 
   async recordProviderStatus(providerId, success, latency) {
-    await pool.query(
-      `UPDATE providers 
-       SET last_success_at = CASE WHEN $2 THEN NOW() ELSE last_success_at END,
-           last_failed_at = CASE WHEN NOT $2 THEN NOW() ELSE last_failed_at END,
-           avg_latency = CASE WHEN $2 THEN COALESCE((avg_latency * 9 + $3) / 10, $3) ELSE avg_latency END
-       WHERE id = $1`,
-      [providerId, success, latency]
-    );
+    if (success) {
+      await run(
+        'UPDATE providers SET last_success_at = CURRENT_TIMESTAMP, avg_latency = COALESCE((avg_latency * 9 + ?) / 10, ?) WHERE id = ?',
+        [latency, latency, providerId]
+      );
+    } else {
+      await run(
+        'UPDATE providers SET last_failed_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [providerId]
+      );
+    }
   }
 }
 

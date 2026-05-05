@@ -1,68 +1,58 @@
 export interface User {
   id: string;
   email: string;
-  name?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Provider {
   id: string;
   user_id: string;
   provider_name: string;
-  provider_type: 'openai' | 'anthropic' | 'custom';
+  provider_type: string;
   api_key: string;
   base_url: string;
-  enabled: boolean;
-  last_success_at?: string;
-  last_failed_at?: string;
-  avg_latency?: number;
+  enabled: number;
+  avg_latency: number;
+  last_success_at: string | null;
+  last_failed_at: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface ApiKey {
   id: string;
-  key_value: string;
+  user_id: string;
+  key: string;
   name: string;
-  enabled: boolean;
-  rate_limit: number;
-  allowed_models?: string[];
-  allowed_providers?: string[];
-  ip_whitelist?: string[];
+  enabled: number;
   created_at: string;
+  expires_at: string | null;
 }
 
 export interface Request {
   id: string;
+  api_key_id: string;
   provider: string;
   model: string;
   status_code: number;
   latency: number;
-  prompt_tokens?: number;
-  completion_tokens?: number;
-  cost?: number;
-  error_message?: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  cost: number;
+  error_message: string | null;
   created_at: string;
-}
-
-export interface DashboardStats {
-  total_requests: number;
-  today_requests: number;
-  avg_latency_ms: number;
-  success_rate: number;
-  provider_stats: Array<{
-    provider: string;
-    count: number;
-    avg_latency_ms: number;
-  }>;
 }
 
 export interface AuditLog {
   id: string;
   user_id: string;
   action: string;
-  resource_type?: string;
-  resource_id?: string;
-  details?: any;
-  ip_address?: string;
+  resource_type: string;
+  resource_id: string;
+  details: string;
+  ip_address: string;
+  user_agent: string;
   created_at: string;
 }
 
@@ -70,4 +60,42 @@ export interface Model {
   id: string;
   name: string;
   owned_by: string;
+  provider_id: string;
+  provider_name: string;
+}
+
+export interface Stats {
+  totalRequests: number;
+  successCount: number;
+  errorCount: number;
+  avgLatency: number;
+  activeConnections: number;
+}
+
+export interface LoginData {
+  email: string;
+  password: string;
+}
+
+export interface RegisterData {
+  email: string;
+  password: string;
+}
+
+export interface CreateProviderData {
+  provider_name: string;
+  provider_type: string;
+  api_key: string;
+  base_url: string;
+}
+
+export interface CreateApiKeyData {
+  name: string;
+  expires_at?: string;
+}
+
+export interface TestConnectionResult {
+  success: boolean;
+  status?: number;
+  message: string;
 }

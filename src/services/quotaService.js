@@ -1,39 +1,28 @@
-const pool = require('../config/database');
+const { query, run } = require('../utils/db');
 
 class QuotaService {
   async getQuota(userId) {
-    const result = await pool.query(
-      'SELECT * FROM user_quotas WHERE user_id = $1',
-      [userId]
-    );
+    const result = await query('SELECT * FROM user_quotas WHERE user_id = ?', [userId]);
 
     if (result.rows.length > 0) {
       return result.rows[0];
     }
 
-    const defaultQuota = await pool.query(
-      `INSERT INTO user_quotas (user_id) VALUES ($1) RETURNING *`,
-      [userId]
-    );
-
-    return defaultQuota.rows[0];
+    await run('INSERT INTO user_quotas (user_id) VALUES (?)', [userId]);
+    const newQuota = await query('SELECT * FROM user_quotas WHERE user_id = ?', [userId]);
+    return newQuota.rows[0];
   }
 
   async checkQuota(userId, cost = 0, tokens = 0) {
     const quota = await this.getQuota(userId);
 
-    const todayUsage = await pool.query(
-      `SELECT COUNT(*) as count FROM requests r
-       JOIN api_keys ak ON r.api_key_id = ak.id
-       WHERE ak.user_id = $1 AND r.created_at >= CURRENT_DATE`,
+    const todayUsage = await query(
+      'SELECT COUNT(*) as count FROM requests r JOIN api_keys ak ON r.api_key_id = ak.id WHERE ak.user_id = ? AND date(r.created_at) = date("now")',
       [userId]
     );
 
-    const monthUsage = await pool.query(
-      `SELECT SUM(cost) as total_cost, SUM(prompt_tokens + COALESCE(completion_tokens, 0)) as total_tokens
-       FROM requests r
-       JOIN api_keys ak ON r.api_key_id = ak.id
-       WHERE ak.user_id = $1 AND r.created_at >= DATE_TRUNC('month', CURRENT_DATE)`,
+    const monthUsage = await query(
+      'SELECT SUM(cost) as total_cost, SUM(prompt_tokens + COALESCE(completion_tokens, 0)) as total_tokens FROM requests r JOIN api_keys ak ON r.api_key_id = ak.id WHERE ak.user_id = ? AND strftime("%Y-%m", r.created_at) = strftime("%Y-%m", "now")',
       [userId]
     );
 
@@ -65,17 +54,12 @@ class QuotaService {
   }
 
   async updateQuota(userId, dailyRequests, monthlyCostLimit, totalTokensLimit) {
-    const result = await pool.query(
-      `UPDATE user_quotas 
-       SET daily_requests = COALESCE($1, daily_requests),
-           monthly_cost_limit = COALESCE($2, monthly_cost_limit),
-           total_tokens_limit = COALESCE($3, total_tokens_limit),
-           updated_at = NOW()
-       WHERE user_id = $4
-       RETURNING *`,
+    await run(
+      'UPDATE user_quotas SET daily_requests = COALESCE(?, daily_requests), monthly_cost_limit = COALESCE(?, monthly_cost_limit), total_tokens_limit = COALESCE(?, total_tokens_limit), updated_at = CURRENT_TIMESTAMP WHERE user_id = ?',
       [dailyRequests, monthlyCostLimit, totalTokensLimit, userId]
     );
 
+    const result = await query('SELECT * FROM user_quotas WHERE user_id = ?', [userId]);
     return result.rows[0];
   }
 }

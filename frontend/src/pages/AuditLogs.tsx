@@ -1,103 +1,162 @@
-import { useEffect, useState } from 'react';
-import { useAppStore } from '../store';
-import { apiClient } from '../services/api';
-import { AuditLog } from '../types';
-import {
-  UserPlus,
-  Settings,
-  Plus,
-  Edit,
-  Trash,
-  Clock,
-} from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { auditAPI } from '@/services/api';
+import type { AuditLog } from '@/types';
+import { FileText, User, Server, Key, Settings, Login, Logout, Plus, Edit, Trash2, RefreshCw, Clock, Globe } from 'lucide-react';
 
-export default function AuditLogsPage() {
-  const { auditLogs, setAuditLogs } = useAppStore();
-  const [loading, setLoading] = useState(true);
+export default function AuditLogs() {
+  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
   useEffect(() => {
-    fetchAuditLogs();
-  }, []);
+    const fetchLogs = async () => {
+      try {
+        const data = await auditAPI.getLogs(page, 50);
+        if (data.length < 50) {
+          setHasMore(false);
+        }
+        if (page === 1) {
+          setLogs(data);
+        } else {
+          setLogs(prev => [...prev, ...data]);
+        }
+      } catch (error) {
+        console.error('Failed to fetch audit logs:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  const fetchAuditLogs = async () => {
-    try {
-      const data = await apiClient.getAuditLogs();
-      setAuditLogs(data);
-    } catch (err) {
-      console.error('Failed to fetch audit logs:', err);
-    } finally {
-      setLoading(false);
-    }
+    fetchLogs();
+  }, [page]);
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString('zh-CN');
   };
 
   const getActionIcon = (action: string) => {
-    switch (action.toLowerCase()) {
-      case 'create':
-        return <Plus className="w-5 h-5 text-green-500" />;
-      case 'update':
-        return <Edit className="w-5 h-5 text-blue-500" />;
-      case 'delete':
-        return <Trash className="w-5 h-5 text-red-500" />;
-      case 'register':
-      case 'login':
-        return <UserPlus className="w-5 h-5 text-purple-500" />;
-      default:
-        return <Settings className="w-5 h-5 text-gray-500" />;
+    const lowerAction = action.toLowerCase();
+    if (lowerAction.includes('create') || lowerAction.includes('add')) {
+      return <Plus className="w-4 h-4 text-green-500" />;
+    }
+    if (lowerAction.includes('update') || lowerAction.includes('edit')) {
+      return <Edit className="w-4 h-4 text-blue-500" />;
+    }
+    if (lowerAction.includes('delete') || lowerAction.includes('remove')) {
+      return <Trash2 className="w-4 h-4 text-red-500" />;
+    }
+    if (lowerAction.includes('login')) {
+      return <Login className="w-4 h-4 text-purple-500" />;
+    }
+    if (lowerAction.includes('logout')) {
+      return <Logout className="w-4 h-4 text-gray-500" />;
+    }
+    return <Settings className="w-4 h-4 text-gray-500" />;
+  };
+
+  const getResourceIcon = (resourceType: string) => {
+    const lowerType = resourceType.toLowerCase();
+    if (lowerType.includes('provider')) {
+      return <Server className="w-4 h-4 text-blue-500" />;
+    }
+    if (lowerType.includes('api_key') || lowerType.includes('key')) {
+      return <Key className="w-4 h-4 text-yellow-500" />;
+    }
+    if (lowerType.includes('user')) {
+      return <User className="w-4 h-4 text-green-500" />;
+    }
+    return <FileText className="w-4 h-4 text-gray-500" />;
+  };
+
+  const loadMore = () => {
+    if (hasMore && !isLoading) {
+      setPage(prev => prev + 1);
     }
   };
 
   return (
-    <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold text-gray-900">Audit Logs</h1>
-        <p className="text-gray-500 mt-1">View all user actions</p>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-apple-text">审计日志</h2>
+          <p className="text-sm text-apple-text-secondary mt-1">记录所有系统操作和用户活动</p>
+        </div>
       </div>
 
-      <div className="bg-white rounded-apple shadow-apple overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="font-semibold text-gray-900">Activity Log</h2>
-        </div>
-        <div className="divide-y divide-gray-200">
-          {loading ? (
-            <div className="px-6 py-12 text-center text-gray-400">
-              Loading...
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="max-h-[calc(100vh-20rem)] overflow-y-auto">
+          {isLoading && logs.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw className="w-6 h-6 animate-spin text-gray-400" />
             </div>
-          ) : auditLogs.length === 0 ? (
-            <div className="px-6 py-12 text-center text-gray-400">
-              No activity yet
+          ) : logs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-apple-text-secondary">
+              <FileText className="w-12 h-12 mb-3 opacity-50" />
+              <p>暂无审计日志</p>
             </div>
           ) : (
-            auditLogs.map((log) => (
-              <div
-                key={log.id}
-                className="px-6 py-4 flex items-start gap-4 hover:bg-gray-50"
-              >
-                <div className="p-2 bg-gray-100 rounded-full mt-0.5">
-                  {getActionIcon(log.action)}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <p className="font-medium text-gray-900">
-                      {log.action.charAt(0).toUpperCase() + log.action.slice(1)}
-                    </p>
-                    <div className="flex items-center gap-2 text-sm text-gray-400">
-                      <Clock className="w-4 h-4" />
-                      {new Date(log.created_at).toLocaleString()}
+            <>
+              {logs.map((log) => (
+                <div
+                  key={log.id}
+                  className="px-6 py-4 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="flex-shrink-0 mt-0.5">
+                      {getActionIcon(log.action)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-1">
+                        <span className="font-medium text-apple-text">{log.action}</span>
+                        <div className="flex items-center gap-1">
+                          {getResourceIcon(log.resource_type)}
+                          <span className="text-sm text-apple-text-secondary">
+                            {log.resource_type}
+                          </span>
+                        </div>
+                        {log.resource_id && (
+                          <span className="text-xs text-gray-400 font-mono">
+                            #{log.resource_id.slice(0, 8)}
+                          </span>
+                        )}
+                      </div>
+                      {log.details && (
+                        <p className="text-sm text-apple-text-secondary mb-2">
+                          {log.details}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-4 text-xs text-apple-text-secondary">
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {formatDate(log.created_at)}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Globe className="w-3 h-3" />
+                          {log.ip_address || 'Unknown'}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  {log.resource_type && (
-                    <p className="text-gray-600 text-sm">
-                      {log.resource_type}
-                    </p>
-                  )}
-                  {log.details && (
-                    <p className="text-gray-400 text-sm mt-1">
-                      {JSON.stringify(log.details)}
-                    </p>
-                  )}
                 </div>
-              </div>
-            ))
+              ))}
+
+              {hasMore && (
+                <div className="px-6 py-4 border-t border-gray-100">
+                  <button
+                    onClick={loadMore}
+                    disabled={isLoading}
+                    className="w-full py-3 bg-gray-50 text-gray-700 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isLoading ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>加载更多</>
+                    )}
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

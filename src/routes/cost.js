@@ -1,5 +1,5 @@
 const express = require('express');
-const pool = require('../config/database');
+const { query } = require('../utils/db');
 const costService = require('../services/costService');
 const quotaService = require('../services/quotaService');
 const { authenticateToken } = require('../middleware/auth');
@@ -29,15 +29,9 @@ router.get('/history', authenticateToken, async (req, res) => {
     const { limit = 50, page = 1 } = req.query;
     const offset = (page - 1) * limit;
 
-    const result = await pool.query(
-      `SELECT r.id, r.provider, r.model, r.status_code, r.latency, 
-              r.prompt_tokens, r.completion_tokens, r.cost, r.created_at
-       FROM requests r
-       JOIN api_keys ak ON r.api_key_id = ak.id
-       WHERE ak.user_id = $1
-       ORDER BY r.created_at DESC
-       LIMIT $2 OFFSET $3`,
-      [req.user.id, limit, offset]
+    const result = await query(
+      'SELECT r.id, r.provider, r.model, r.status_code, r.latency, r.prompt_tokens, r.completion_tokens, r.cost, r.created_at FROM requests r JOIN api_keys ak ON r.api_key_id = ak.id WHERE ak.user_id = ? ORDER BY r.created_at DESC LIMIT ? OFFSET ?',
+      [req.user.id, parseInt(limit), parseInt(offset)]
     );
 
     res.json(result.rows);
@@ -87,7 +81,7 @@ router.put('/quota', authenticateToken, async (req, res) => {
 
 router.get('/prices', authenticateToken, async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM prices');
+    const result = await query('SELECT * FROM prices');
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });

@@ -7,15 +7,18 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#007aff',
-        background: '#f5f5f7',
-        surface: '#ffffff',
+        'apple-blue': '#0071e3',
+        'apple-blue-hover': '#0077ed',
+        'apple-gray': '#f5f5f7',
+        'apple-gray-dark': '#86868b',
+        'apple-text': '#1d1d1f',
+        'apple-text-secondary': '#6e6e73',
       },
-      borderRadius: {
-        apple: '12px',
+      fontFamily: {
+        'sf': ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
       },
-      boxShadow: {
-        apple: '0 2px 8px rgba(0,0,0,0.08)',
+      backdropBlur: {
+        xs: '2px',
       },
     },
   },

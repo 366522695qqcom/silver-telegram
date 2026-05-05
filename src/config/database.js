@@ -1,11 +1,7 @@
-const { Pool } = require('pg');
+const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
 
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'ai_gateway',
-  user: process.env.DB_USER || 'admin',
-  password: process.env.DB_PASSWORD || 'password',
-});
+const dbPath = path.join(__dirname, '../local.db');
+const db = new sqlite3.Database(dbPath);
 
-module.exports = pool;
+module.exports = db;

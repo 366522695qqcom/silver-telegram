@@ -1,148 +1,155 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAppStore } from '../store';
-import { apiClient } from '../services/api';
-import { Lock, User, ArrowRight, CheckCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { authAPI } from '@/services/api';
+import { useStore } from '@/store';
+import { Lock, Mail, Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { setToken, setUser } = useAppStore();
-  const [isRegister, setIsRegister] = useState(false);
+  const { setUser, setIsAuthenticated, setError, setIsLoading } = useStore();
+  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    
+    if (!isLogin && password !== confirmPassword) {
+      setError('两次输入的密码不一致');
+      return;
+    }
+
+    setIsLoading(true);
     setError(null);
 
     try {
-      if (isRegister) {
-        await apiClient.register(email, password, name);
-        // After register, login automatically
-        const loginResult = await apiClient.login(email, password);
-        setToken(loginResult.token);
-        setUser(loginResult.user);
-        navigate('/');
-      } else {
-        const loginResult = await apiClient.login(email, password);
-        setToken(loginResult.token);
-        setUser(loginResult.user);
-        navigate('/');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Something went wrong');
+      const result = isLogin
+        ? await authAPI.login({ email, password })
+        : await authAPI.register({ email, password });
+
+      localStorage.setItem('token', result.token);
+      setUser(result.user);
+      setIsAuthenticated(true);
+      navigate('/home');
+    } catch (error) {
+      setError((error as Error).message);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      <div className="w-full max-w-md p-8 bg-white rounded-apple shadow-apple">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-semibold text-gray-900 mb-2">
-            {isRegister ? 'Create Account' : 'Welcome Back'}
-          </h1>
-          <p className="text-gray-500">
-            {isRegister 
-              ? 'Sign up to manage your AI providers' 
-              : 'Sign in to your AI Gateway'}
-          </p>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="bg-white rounded-2xl shadow-xl p-8">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-apple-blue flex items-center justify-center">
+              <span className="text-white text-2xl font-bold">AI</span>
+            </div>
+            <h1 className="text-2xl font-semibold text-apple-text">
+              {isLogin ? '欢迎回来' : '创建账户'}
+            </h1>
+            <p className="text-apple-text-secondary mt-2">
+              {isLogin ? '登录您的 AI API Gateway 账户' : '开始使用统一的 AI API 管理平台'}
+            </p>
+          </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {isRegister && (
+          {useStore.getState().error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+              {useStore.getState().error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Name
-              </label>
+              <label className="block text-sm font-medium text-apple-text mb-2">邮箱</label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-apple focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="Your name"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-apple-blue/20 focus:border-apple-blue transition-all bg-gray-50 hover:bg-white"
+                  required
                 />
               </div>
             </div>
-          )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-apple focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                placeholder="you@example.com"
-                required
-              />
+            <div>
+              <label className="block text-sm font-medium text-apple-text mb-2">密码</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-apple-blue/20 focus:border-apple-blue transition-all bg-gray-50 hover:bg-white"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-apple focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-          </div>
-
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-apple text-red-600 text-sm">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-primary text-white py-3 rounded-apple font-medium hover:bg-blue-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <span className="animate-pulse">Loading...</span>
-            ) : (
-              <>
-                {isRegister ? 'Sign Up' : 'Sign In'}
-                <ArrowRight className="w-4 h-4" />
-              </>
+            {!isLogin && (
+              <div>
+                <label className="block text-sm font-medium text-apple-text mb-2">确认密码</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-10 pr-12 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-apple-blue/20 focus:border-apple-blue transition-all bg-gray-50 hover:bg-white"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
             )}
-          </button>
-        </form>
 
-        <div className="mt-6 text-center">
-          <p className="text-gray-500 text-sm">
-            {isRegister 
-              ? 'Already have an account?' 
-              : "Don't have an account?"}
+            <button
+              type="submit"
+              disabled={useStore.getState().isLoading}
+              className="w-full py-3 bg-apple-blue hover:bg-apple-blue-hover text-white font-medium rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-apple-blue/25"
+            >
+              {useStore.getState().isLoading ? '加载中...' : (isLogin ? '登录' : '注册')}
+            </button>
+          </form>
+
+          <p className="text-center text-apple-text-secondary mt-6">
+            {isLogin ? '还没有账户？' : '已有账户？'}
+            <button
+              onClick={() => {
+                setIsLogin(!isLogin);
+                setError(null);
+              }}
+              className="text-apple-blue hover:text-apple-blue-hover font-medium ml-1"
+            >
+              {isLogin ? '立即注册' : '立即登录'}
+            </button>
           </p>
-          <button
-            type="button"
-            onClick={() => setIsRegister(!isRegister)}
-            className="text-primary font-medium hover:underline"
-          >
-            {isRegister ? 'Sign In' : 'Create Account'}
-          </button>
         </div>
+
+        <p className="text-center text-apple-text-secondary text-sm mt-6">
+          AI API Gateway - 统一管理所有 AI 提供商
+        </p>
       </div>
     </div>
   );

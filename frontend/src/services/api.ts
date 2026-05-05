@@ -1,125 +1,235 @@
-import { useAppStore } from '../store';
-import {
-  User,
-  Provider,
-  ApiKey,
-  DashboardStats,
-  Request,
-  AuditLog,
-  Model,
-} from '../types';
+import type { User, Provider, ApiKey, Request, AuditLog, Model, LoginData, RegisterData, CreateProviderData, CreateApiKeyData, TestConnectionResult } from '@/types';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+const API_BASE_URL = '/api';
 
-class ApiClient {
-  private getHeaders() {
-    const token = useAppStore.getState().token;
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
+const getAuthToken = () => {
+  return localStorage.getItem('token');
+};
+
+const request = async <T>(url: string, options: RequestInit = {}): Promise<T> => {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...options.headers,
+  };
+
+  const token = getAuthToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}${url}`, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Request failed');
+  }
+
+  return response.json();
+};
+
+export const authAPI = {
+  login: async (data: LoginData): Promise<{ user: User; token: string }> => {
+    return request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  register: async (data: RegisterData): Promise<{ user: User; token: string }> => {
+    return request('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  me: async (): Promise<User> => {
+    return request('/auth/me');
+  },
+
+  logout: async (): Promise<void> => {
+    localStorage.removeItem('token');
+  },
+};
+
+export const providersAPI = {
+  getAll: async (): Promise<Provider[]> => {
+    return request('/providers');
+  },
+
+  getById: async (id: string): Promise<Provider> => {
+    return request(`/providers/${id}`);
+  },
+
+  create: async (data: CreateProviderData): Promise<Provider> => {
+    return request('/providers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  update: async (id: string, data: Partial<CreateProviderData>): Promise<Provider> => {
+    return request(`/providers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  delete: async (id: string): Promise<void> => {
+    return request(`/providers/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  toggleStatus: async (id: string): Promise<Provider> => {
+    return request(`/providers/${id}/toggle`, {
+      method: 'POST',
+    });
+  },
+
+  testConnection: async (id: string): Promise<TestConnectionResult> => {
+    return request(`/providers/${id}/test`, {
+      method: 'POST',
+    });
+  },
+
+  getModels: async (providerId?: string): Promise<Model[]> => {
+    const url = providerId ? `/providers/${providerId}/models` : '/providers/models';
+    return request(url);
+  },
+};
+
+export const apiKeysAPI = {
+  getAll: async (): Promise<ApiKey[]> => {
+    return request('/api-keys');
+  },
+
+  getById: async (id: string): Promise<ApiKey> => {
+    return request(`/api-keys/${id}`);
+  },
+
+  create: async (data: CreateApiKeyData): Promise<ApiKey> => {
+    return request('/api-keys', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  update: async (id: string, data: Partial<CreateApiKeyData>): Promise<ApiKey> => {
+    return request(`/api-keys/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  delete: async (id: string): Promise<void> => {
+    return request(`/api-keys/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  toggleStatus: async (id: string): Promise<ApiKey> => {
+    return request(`/api-keys/${id}/toggle`, {
+      method: 'POST',
+    });
+  },
+
+  regenerate: async (id: string): Promise<ApiKey> => {
+    return request(`/api-keys/${id}/regenerate`, {
+      method: 'POST',
+    });
+  },
+};
+
+export const monitorAPI = {
+  getRequests: async (page?: number, limit?: number): Promise<Request[]> => {
+    const params = new URLSearchParams();
+    if (page) params.set('page', page.toString());
+    if (limit) params.set('limit', limit.toString());
+    return request(`/monitor/requests?${params.toString()}`);
+  },
+
+  getStats: async (): Promise<{
+    total_requests: number;
+    success_rate: number;
+    avg_latency: number;
+    top_providers: { provider: string; count: number }[];
+    top_models: { model: string; count: number }[];
+  }> => {
+    return request('/monitor/stats');
+  },
+
+  getRealtimeStats: async (): Promise<{
+    totalRequests: number;
+    successCount: number;
+    errorCount: number;
+    avgLatency: number;
+    activeConnections: number;
+  }> => {
+    return request('/monitor/realtime');
+  },
+};
+
+export const auditAPI = {
+  getLogs: async (page?: number, limit?: number): Promise<AuditLog[]> => {
+    const params = new URLSearchParams();
+    if (page) params.set('page', page.toString());
+    if (limit) params.set('limit', limit.toString());
+    return request(`/audit/logs?${params.toString()}`);
+  },
+};
+
+export const costAPI = {
+  getMonthlyUsage: async (month?: number, year?: number): Promise<{
+    month: number;
+    year: number;
+    total_cost: number;
+    total_requests: number;
+    total_prompt_tokens: number;
+    total_completion_tokens: number;
+  }> => {
+    const params = new URLSearchParams();
+    if (month) params.set('month', month.toString());
+    if (year) params.set('year', year.toString());
+    return request(`/cost/monthly?${params.toString()}`);
+  },
+
+  getHistory: async (page?: number, limit?: number): Promise<Request[]> => {
+    const params = new URLSearchParams();
+    if (page) params.set('page', page.toString());
+    if (limit) params.set('limit', limit.toString());
+    return request(`/cost/history?${params.toString()}`);
+  },
+
+  getQuota: async (): Promise<{
+    quota: {
+      daily_requests: number;
+      monthly_cost_limit: number;
+      total_tokens_limit: number;
     };
-    if (token) {
-      headers.Authorization = `Bearer ${token}`;
-    }
-    return headers;
-  }
-
-  async request(
-    method: string,
-    endpoint: string,
-    data?: any
-  ): Promise<any> {
-    const url = `${API_BASE}${endpoint}`;
-    const options: RequestInit = {
-      method,
-      headers: this.getHeaders(),
+    usage: {
+      today_requests: number;
+      monthly_cost: number;
+      total_tokens: number;
     };
-    if (data) {
-      options.body = JSON.stringify(data);
-    }
+  }> => {
+    return request('/cost/quota');
+  },
 
-    const response = await fetch(url, options);
-    const contentType = response.headers.get('content-type');
-    
-    let result;
-    if (contentType && contentType.includes('application/json')) {
-      result = await response.json();
-    } else {
-      result = await response.text();
-    }
-
-    if (!response.ok) {
-      throw new Error(
-        typeof result === 'string' ? result : result?.error || `HTTP ${response.status}`
-      );
-    }
-
-    return result;
-  }
-
-  // Auth
-  async login(email: string, password: string): Promise<{ token: string; user: User }> {
-    return this.request('POST', '/api/auth/login', { email, password });
-  }
-
-  async register(email: string, password: string, name?: string): Promise<void> {
-    return this.request('POST', '/api/auth/register', { email, password, name });
-  }
-
-  // Providers
-  async getProviders(): Promise<Provider[]> {
-    return this.request('GET', '/api/providers');
-  }
-
-  async createProvider(provider: Omit<Provider, 'id' | 'user_id' | 'created_at'>): Promise<Provider> {
-    return this.request('POST', '/api/providers', provider);
-  }
-
-  async updateProvider(id: string, provider: Partial<Provider>): Promise<Provider> {
-    return this.request('PUT', `/api/providers/${id}`, provider);
-  }
-
-  async deleteProvider(id: string): Promise<void> {
-    return this.request('DELETE', `/api/providers/${id}`);
-  }
-
-  async testProvider(id: string): Promise<{ success: boolean; message: string }> {
-    return this.request('POST', `/api/providers/${id}/test`);
-  }
-
-  async getProviderModels(id: string): Promise<Model[]> {
-    return this.request('GET', `/api/providers/${id}/models`);
-  }
-
-  // API Keys
-  async getApiKeys(): Promise<ApiKey[]> {
-    return this.request('GET', '/api/keys');
-  }
-
-  async createApiKey(key: Omit<ApiKey, 'id' | 'created_at'>): Promise<ApiKey> {
-    return this.request('POST', '/api/keys', key);
-  }
-
-  async updateApiKey(id: string, key: Partial<ApiKey>): Promise<ApiKey> {
-    return this.request('PUT', `/api/keys/${id}`, key);
-  }
-
-  async deleteApiKey(id: string): Promise<void> {
-    return this.request('DELETE', `/api/keys/${id}`);
-  }
-
-  // Monitor
-  async getStats(): Promise<DashboardStats> {
-    return this.request('GET', '/api/monitor/stats');
-  }
-
-  async getRequests(limit = 50, offset = 0): Promise<Request[]> {
-    return this.request('GET', `/api/monitor/history?limit=${limit}&offset=${offset}`);
-  }
-
-  // Audit
-  async getAuditLogs(limit = 50, offset = 0): Promise<AuditLog[]> {
-    return this.request('GET', `/api/audit?limit=${limit}&offset=${offset}`);
-  }
-}
-
-export const apiClient = new ApiClient();
+  updateQuota: async (data: {
+    daily_requests?: number;
+    monthly_cost_limit?: number;
+    total_tokens_limit?: number;
+  }): Promise<{
+    daily_requests: number;
+    monthly_cost_limit: number;
+    total_tokens_limit: number;
+  }> => {
+    return request('/cost/quota', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+};

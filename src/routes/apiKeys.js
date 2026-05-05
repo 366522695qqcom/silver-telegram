@@ -1,13 +1,13 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
-const pool = require('../config/database');
+const { query, run } = require('../utils/db');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, name, key_value, enabled, rate_limit, created_at, expires_at FROM api_keys WHERE user_id = $1', [req.user.id]);
+    const result = await query('SELECT id, name, key_value, enabled, rate_limit, created_at, expires_at FROM api_keys WHERE user_id = ?', [req.user.id]);
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
@@ -18,12 +18,14 @@ router.post('/', authenticateToken, async (req, res) => {
   try {
     const { name, expires_at, rate_limit } = req.body;
     const keyValue = uuidv4().replace(/-/g, '');
+    const id = uuidv4();
 
-    const result = await pool.query(
-      'INSERT INTO api_keys (user_id, key_value, name, expires_at, rate_limit) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, key_value, enabled, rate_limit, created_at, expires_at',
-      [req.user.id, keyValue, name, expires_at, rate_limit || 1000]
+    await run(
+      'INSERT INTO api_keys (id, user_id, key_value, name, expires_at, rate_limit) VALUES (?, ?, ?, ?, ?, ?)',
+      [id, req.user.id, keyValue, name, expires_at, rate_limit || 1000]
     );
 
+    const result = await query('SELECT id, name, key_value, enabled, rate_limit, created_at, expires_at FROM api_keys WHERE id = ?', [id]);
     res.status(201).json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
@@ -32,7 +34,7 @@ router.post('/', authenticateToken, async (req, res) => {
 
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, name, key_value, enabled, rate_limit, created_at, expires_at FROM api_keys WHERE id = $1 AND user_id = $2', [req.params.id, req.user.id]);
+    const result = await query('SELECT id, name, key_value, enabled, rate_limit, created_at, expires_at FROM api_keys WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'API key not found' });
@@ -48,15 +50,37 @@ router.put('/:id', authenticateToken, async (req, res) => {
   try {
     const { name, enabled, rate_limit, expires_at } = req.body;
 
-    const result = await pool.query(
-      'UPDATE api_keys SET name = COALESCE($1, name), enabled = COALESCE($2, enabled), rate_limit = COALESCE($3, rate_limit), expires_at = COALESCE($4, expires_at), updated_at = NOW() WHERE id = $5 AND user_id = $6 RETURNING id, name, key_value, enabled, rate_limit, created_at, expires_at',
-      [name, enabled, rate_limit, expires_at, req.params.id, req.user.id]
-    );
-
-    if (result.rows.length === 0) {
+    const existing = await query('SELECT * FROM api_keys WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    if (existing.rows.length === 0) {
       return res.status(404).json({ error: 'API key not found' });
     }
 
+    const updateFields = [];
+    const updateValues = [];
+
+    if (name !== undefined) {
+      updateFields.push('name = ?');
+      updateValues.push(name);
+    }
+    if (enabled !== undefined) {
+      updateFields.push('enabled = ?');
+      updateValues.push(enabled ? 1 : 0);
+    }
+    if (rate_limit !== undefined) {
+      updateFields.push('rate_limit = ?');
+      updateValues.push(rate_limit);
+    }
+    if (expires_at !== undefined) {
+      updateFields.push('expires_at = ?');
+      updateValues.push(expires_at);
+    }
+
+    updateValues.push(req.params.id);
+    updateValues.push(req.user.id);
+
+    await run(`UPDATE api_keys SET ${updateFields.join(', ')} WHERE id = ? AND user_id = ?`, updateValues);
+
+    const result = await query('SELECT id, name, key_value, enabled, rate_limit, created_at, expires_at FROM api_keys WHERE id = ?', [req.params.id]);
     res.json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
@@ -65,12 +89,12 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
 router.delete('/:id', authenticateToken, async (req, res) => {
   try {
-    const result = await pool.query('DELETE FROM api_keys WHERE id = $1 AND user_id = $2 RETURNING id', [req.params.id, req.user.id]);
-
-    if (result.rows.length === 0) {
+    const existing = await query('SELECT id FROM api_keys WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    if (existing.rows.length === 0) {
       return res.status(404).json({ error: 'API key not found' });
     }
 
+    await run('DELETE FROM api_keys WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
     res.json({ message: 'API key deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });

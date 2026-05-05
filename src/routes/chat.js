@@ -1,6 +1,6 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
-const pool = require('../config/database');
+const { query, run } = require('../utils/db');
 const providerService = require('../services/providerService');
 const routerService = require('../services/routerService');
 const costService = require('../services/costService');
@@ -25,8 +25,8 @@ router.post('/completions', authenticateApiKey, async (req, res) => {
     if (!provider_id) {
       provider = await routerService.findBestProvider(req.apiKey.user_id, model);
     } else {
-      const result = await pool.query(
-        'SELECT * FROM providers WHERE id = $1 AND user_id = $2 AND enabled = true',
+      const result = await query(
+        'SELECT * FROM providers WHERE id = ? AND user_id = ? AND enabled = 1',
         [provider_id, req.apiKey.user_id]
       );
       if (result.rows.length === 0) {
@@ -40,8 +40,8 @@ router.post('/completions', authenticateApiKey, async (req, res) => {
       const cached = cacheService.get(cacheKey);
       if (cached) {
         const latency = Date.now() - startTime;
-        await pool.query(
-          'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, prompt_tokens, completion_tokens) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+        await run(
+          'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, prompt_tokens, completion_tokens) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
           [requestId, req.apiKey.id, provider.provider_name, model, 200, latency, cached.usage.prompt_tokens, cached.usage.completion_tokens]
         );
         return res.json(cached);
@@ -94,8 +94,8 @@ router.post('/completions', authenticateApiKey, async (req, res) => {
         result.data.usage?.completion_tokens || 0
       );
 
-      await pool.query(
-        'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, prompt_tokens, completion_tokens, cost) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+      await run(
+        'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, prompt_tokens, completion_tokens, cost) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           requestId,
           req.apiKey.id,
@@ -112,8 +112,8 @@ router.post('/completions', authenticateApiKey, async (req, res) => {
       await routerService.recordProviderStatus(provider.id, true, latency);
       res.json(result.data);
     } else {
-      await pool.query(
-        'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, error_message) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+      await run(
+        'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, error_message) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [requestId, req.apiKey.id, provider.provider_name, model, result.status_code || 500, latency, result.error]
       );
 
@@ -122,8 +122,8 @@ router.post('/completions', authenticateApiKey, async (req, res) => {
     }
   } catch (error) {
     const latency = Date.now() - startTime;
-    await pool.query(
-      'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, error_message) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+    await run(
+      'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, error_message) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [requestId, req.apiKey.id, provider?.provider_name || 'unknown', req.body.model || 'unknown', 500, latency, error.message]
     );
 
@@ -145,10 +145,18 @@ router.post('/embeddings', authenticateApiKey, async (req, res) => {
       return res.status(400).json({ error: 'model and input are required' });
     }
 
-    const providers = await pool.query(
-      'SELECT * FROM providers WHERE (id = $1 OR $1 IS NULL) AND user_id = $2 AND enabled = true',
-      [provider_id, req.apiKey.user_id]
-    );
+    let providers;
+    if (provider_id) {
+      providers = await query(
+        'SELECT * FROM providers WHERE id = ? AND user_id = ? AND enabled = 1',
+        [provider_id, req.apiKey.user_id]
+      );
+    } else {
+      providers = await query(
+        'SELECT * FROM providers WHERE user_id = ? AND enabled = 1',
+        [req.apiKey.user_id]
+      );
+    }
 
     if (providers.rows.length === 0) {
       return res.status(400).json({ error: 'No enabled providers found' });
@@ -167,22 +175,22 @@ router.post('/embeddings', authenticateApiKey, async (req, res) => {
     const latency = Date.now() - startTime;
 
     if (result.success) {
-      await pool.query(
-        'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, prompt_tokens) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+      await run(
+        'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, prompt_tokens) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [requestId, req.apiKey.id, provider.provider_name, model, 200, latency, result.data.usage?.total_tokens]
       );
       res.json(result.data);
     } else {
-      await pool.query(
-        'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, error_message) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+      await run(
+        'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, error_message) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [requestId, req.apiKey.id, provider.provider_name, model, result.status_code || 500, latency, result.error]
       );
       res.status(result.status_code || 500).json({ error: result.error });
     }
   } catch (error) {
     const latency = Date.now() - startTime;
-    await pool.query(
-      'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, error_message) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+    await run(
+      'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, error_message) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [requestId, req.apiKey.id, 'unknown', req.body.model || 'unknown', 500, latency, error.message]
     );
     res.status(500).json({ error: error.message });
@@ -191,8 +199,8 @@ router.post('/embeddings', authenticateApiKey, async (req, res) => {
 
 router.get('/providers', authenticateApiKey, async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT id, provider_name, provider_type, base_url, enabled, avg_latency FROM providers WHERE user_id = $1 AND enabled = true',
+    const result = await query(
+      'SELECT id, provider_name, provider_type, base_url, enabled, avg_latency FROM providers WHERE user_id = ? AND enabled = 1',
       [req.apiKey.user_id]
     );
     res.json(result.rows);
@@ -207,13 +215,13 @@ router.get('/models', authenticateApiKey, async (req, res) => {
     let providers;
 
     if (provider_id) {
-      providers = await pool.query(
-        'SELECT * FROM providers WHERE id = $1 AND user_id = $2 AND enabled = true',
+      providers = await query(
+        'SELECT * FROM providers WHERE id = ? AND user_id = ? AND enabled = 1',
         [provider_id, req.apiKey.user_id]
       );
     } else {
-      providers = await pool.query(
-        'SELECT * FROM providers WHERE user_id = $1 AND enabled = true',
+      providers = await query(
+        'SELECT * FROM providers WHERE user_id = ? AND enabled = 1',
         [req.apiKey.user_id]
       );
     }

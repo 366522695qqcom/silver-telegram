@@ -1,4 +1,4 @@
-const pool = require('../config/database');
+const { query, run } = require('../utils/db');
 
 const DEFAULT_PRICES = {
   'gpt-4': { prompt: 0.03, completion: 0.06 },
@@ -11,8 +11,8 @@ const DEFAULT_PRICES = {
 
 class CostService {
   async getPrice(providerName, model) {
-    const result = await pool.query(
-      'SELECT prompt_price, completion_price FROM prices WHERE provider_name = $1 AND model = $2',
+    const result = await query(
+      'SELECT prompt_price, completion_price FROM prices WHERE provider_name = ? AND model = ?',
       [providerName, model]
     );
 
@@ -39,23 +39,13 @@ class CostService {
   }
 
   async recordCost(requestId, cost) {
-    await pool.query(
-      'UPDATE requests SET cost = $1 WHERE id = $2',
-      [cost, requestId]
-    );
+    await run('UPDATE requests SET cost = ? WHERE id = ?', [cost, requestId]);
   }
 
   async getMonthlyUsage(userId, month, year) {
-    const result = await pool.query(
-      `SELECT SUM(cost) as total_cost, COUNT(*) as total_requests,
-              SUM(prompt_tokens) as total_prompt_tokens,
-              SUM(completion_tokens) as total_completion_tokens
-       FROM requests r
-       JOIN api_keys ak ON r.api_key_id = ak.id
-       WHERE ak.user_id = $1 
-         AND EXTRACT(YEAR FROM r.created_at) = $2
-         AND EXTRACT(MONTH FROM r.created_at) = $3`,
-      [userId, year, month]
+    const result = await query(
+      'SELECT SUM(cost) as total_cost, COUNT(*) as total_requests, SUM(prompt_tokens) as total_prompt_tokens, SUM(completion_tokens) as total_completion_tokens FROM requests r JOIN api_keys ak ON r.api_key_id = ak.id WHERE ak.user_id = ? AND strftime("%Y", r.created_at) = ? AND strftime("%m", r.created_at) = ?',
+      [userId, year.toString().padStart(4, '0'), month.toString().padStart(2, '0')]
     );
 
     return {
@@ -67,19 +57,19 @@ class CostService {
   }
 
   async setPrice(userId, providerName, model, promptPrice, completionPrice) {
-    const existing = await pool.query(
-      'SELECT id FROM prices WHERE provider_name = $1 AND model = $2',
+    const existing = await query(
+      'SELECT id FROM prices WHERE provider_name = ? AND model = ?',
       [providerName, model]
     );
 
     if (existing.rows.length > 0) {
-      await pool.query(
-        'UPDATE prices SET prompt_price = $1, completion_price = $2 WHERE id = $3',
+      await run(
+        'UPDATE prices SET prompt_price = ?, completion_price = ? WHERE id = ?',
         [promptPrice, completionPrice, existing.rows[0].id]
       );
     } else {
-      await pool.query(
-        'INSERT INTO prices (provider_name, model, prompt_price, completion_price) VALUES ($1, $2, $3, $4)',
+      await run(
+        'INSERT INTO prices (provider_name, model, prompt_price, completion_price) VALUES (?, ?, ?, ?)',
         [providerName, model, promptPrice, completionPrice]
       );
     }
