@@ -111,10 +111,10 @@ const initDatabase = async () => {
       CREATE TABLE IF NOT EXISTS providers (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-        provider_name VARCHAR(50) NOT NULL,
+        provider_name VARCHAR(100) NOT NULL,
+        provider_type VARCHAR(50) DEFAULT 'openai',
         api_key VARCHAR(255) NOT NULL,
-        base_url VARCHAR(255),
-        secret_key VARCHAR(255),
+        base_url VARCHAR(255) NOT NULL,
         enabled BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT NOW()
       );
@@ -124,7 +124,7 @@ const initDatabase = async () => {
       CREATE TABLE IF NOT EXISTS requests (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         api_key_id UUID REFERENCES api_keys(id) ON DELETE CASCADE,
-        provider VARCHAR(50) NOT NULL,
+        provider VARCHAR(100) NOT NULL,
         model VARCHAR(100) NOT NULL,
         status_code INTEGER NOT NULL,
         latency INTEGER,
@@ -134,6 +134,10 @@ const initDatabase = async () => {
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
+
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_requests_api_key_id ON requests(api_key_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_requests_created_at ON requests(created_at)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_providers_user_id ON providers(user_id)`);
 
     logger.info('Database tables initialized');
   } catch (error) {
@@ -147,7 +151,7 @@ const startServer = async () => {
   
   server.listen(PORT, () => {
     logger.info(`Server running on port ${PORT}`);
-    logger.info(`Socket.IO available at http://localhost:${PORT}`);
+    logger.info(`API available at http://localhost:${PORT}`);
   });
 };
 

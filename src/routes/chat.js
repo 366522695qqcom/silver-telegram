@@ -1,74 +1,73 @@
 const express = require('express');
 const pool = require('../config/database');
-const providerManager = require('../adapters/providerManager');
+const providerService = require('../services/providerService');
 const { authenticateApiKey } = require('../middleware/auth');
 
 const router = express.Router();
 
 router.post('/completions', authenticateApiKey, async (req, res) => {
-  const startTime = Date.now();
-  
   try {
-    const { model, provider, messages, max_tokens = 1000, temperature = 0.7 } = req.body;
+    const { provider_id, model, messages, max_tokens, temperature, stream } = req.body;
 
-    if (!model || !provider || !messages) {
-      return res.status(400).json({ error: 'model, provider, and messages are required' });
+    if (!provider_id || !model || !messages) {
+      return res.status(400).json({ error: 'provider_id, model, and messages are required' });
     }
 
-    const providerConfigResult = await pool.query(
-      'SELECT api_key, base_url, enabled FROM providers WHERE user_id = $1 AND provider_name = $2',
-      [req.apiKey.user_id, provider]
+    const providerResult = await pool.query(
+      'SELECT * FROM providers WHERE id = $1 AND user_id = $2 AND enabled = true',
+      [provider_id, req.apiKey.user_id]
     );
 
-    if (providerConfigResult.rows.length === 0) {
-      return res.status(400).json({ error: `Provider ${provider} not configured` });
+    if (providerResult.rows.length === 0) {
+      return res.status(400).json({ error: 'Provider not found or disabled' });
     }
 
-    const providerConfig = providerConfigResult.rows[0];
-    if (!providerConfig.enabled) {
-      return res.status(400).json({ error: `Provider ${provider} is disabled` });
-    }
+    const provider = providerResult.rows[0];
 
-    const requestData = { model, messages, max_tokens, temperature };
-    const response = await providerManager.call(provider, requestData, providerConfig);
+    const result = await providerService.chatCompletion(
+      {
+        base_url: provider.base_url,
+        api_key: provider.api_key,
+        provider_type: provider.provider_type,
+      },
+      { model, messages, max_tokens, temperature, stream }
+    );
 
-    const latency = Date.now() - startTime;
-    
     await pool.query(
-      'INSERT INTO requests (api_key_id, provider, model, status_code, latency, prompt_tokens, completion_tokens) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+      `INSERT INTO requests (api_key_id, provider, model, status_code, latency, prompt_tokens, completion_tokens, error_message)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [
         req.apiKey.id,
-        provider,
+        provider.provider_name,
         model,
-        200,
-        latency,
-        response.usage?.prompt_tokens,
-        response.usage?.completion_tokens,
+        result.success ? 200 : result.status_code,
+        result.latency_ms,
+        result.data?.usage?.prompt_tokens,
+        result.data?.usage?.completion_tokens,
+        result.error,
       ]
     );
 
-    res.json({ ...response, latency_ms: latency });
+    if (result.success) {
+      res.json(result.data);
+    } else {
+      res.status(result.status_code || 500).json({ error: result.error });
+    }
   } catch (error) {
-    const latency = Date.now() - startTime;
-    
-    await pool.query(
-      'INSERT INTO requests (api_key_id, provider, model, status_code, latency, error_message) VALUES ($1, $2, $3, $4, $5, $6)',
-      [
-        req.apiKey.id,
-        req.body.provider || 'unknown',
-        req.body.model || 'unknown',
-        error.response?.status || 500,
-        latency,
-        error.message,
-      ]
-    );
-
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-router.get('/models', authenticateApiKey, (req, res) => {
-  res.json(providerManager.getAllModels());
+router.get('/providers', authenticateApiKey, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT id, provider_name, provider_type, base_url, enabled FROM providers WHERE user_id = $1 AND enabled = true',
+      [req.apiKey.user_id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 module.exports = router;
