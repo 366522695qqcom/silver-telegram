@@ -13,10 +13,9 @@ AI API Gateway Dashboard is a unified management interface for configuring, moni
 ### 2.2 Feature Module
 1. **Login page**: user authentication
 2. **Dashboard home**: overview statistics and real-time metrics
-3. **Providers page**: manage AI provider configurations, test connections
-4. **API Keys page**: create and manage access keys
-5. **Monitor page**: view detailed request logs and analytics
-6. **Audit Logs page**: view user operation audit trail
+3. **Providers & Keys page**: manage AI providers and API keys in one place
+4. **Monitor page**: view detailed request logs and analytics
+5. **Audit Logs page**: view user operation audit trail
 
 ### 2.3 Page Details
 | Page Name | Module Name | Feature description |
@@ -25,13 +24,14 @@ AI API Gateway Dashboard is a unified management interface for configuring, moni
 | Dashboard home | Stats overview | Total requests, today's usage, avg latency, success rate |
 | Dashboard home | Real-time chart | Hourly requests in last 24h, with success/failure |
 | Dashboard home | Provider stats | Quick view of each provider's performance |
-| Providers page | Provider list | Display all configured providers in a clean table |
-| Providers page | Add provider | Modal form for adding new providers (type, name, API key, base URL) |
-| Providers page | Test connection | Button to test provider connectivity |
-| Providers page | Get models | Retrieve available models for a provider |
-| API Keys page | Key list | Display all API keys with status, name, rate limit |
-| API Keys page | Create key | Modal form to create new API keys with optional restrictions |
-| API Keys page | Toggle/Delete | Enable/disable keys or delete them |
+| Providers & Keys page | Tabs view | Split into two tabs: "Providers" and "API Keys" |
+| Providers & Keys page | Provider list | Display all configured providers in a clean table |
+| Providers & Keys page | Add provider | Modal form for adding new providers (type, name, API key, base URL) |
+| Providers & Keys page | Test connection | Button to test provider connectivity |
+| Providers & Keys page | Get models | Retrieve available models for a provider |
+| Providers & Keys page | API Key list | Display all API keys with status, name, rate limit |
+| Providers & Keys page | Create key | Modal form to create new API keys with optional restrictions |
+| Providers & Keys page | Toggle/Delete | Enable/disable keys or delete them |
 | Monitor page | Request list | Filterable, paginated table of requests with details |
 | Monitor page | Model stats | Breakdown of requests by model |
 | Audit Logs page | Log list | Display all user operations with timestamps and details |
@@ -43,14 +43,13 @@ User logs in → navigates dashboard → manages providers/keys → monitors usa
 ```mermaid
 flowchart TD
     A[Login] --> B[Dashboard Home]
-    B --> C[Manage Providers]
-    B --> D[Manage API Keys]
-    B --> E[Monitor Requests]
-    B --> F[View Audit Logs]
-    C --> G[Test Connections]
-    G --> C
-    D --> H[Create/Edit Keys]
-    H --> D
+    B --> C[Manage Providers & Keys]
+    B --> D[Monitor Requests]
+    B --> E[View Audit Logs]
+    C --> F[Add/Edit Providers]
+    C --> G[Create/Edit API Keys]
+    F --> H[Test Connections]
+    H --> F
 ```
 
 ## 4. User Interface Design

@@ -29,8 +29,7 @@ graph TB
 |-------|---------|
 | /login | User authentication page |
 | / | Dashboard overview page |
-| /providers | Provider management page |
-| /keys | API keys management page |
+| /settings | Providers and API keys management page |
 | /monitor | Request monitoring and logs page |
 | /audit | Audit logs page |
 
