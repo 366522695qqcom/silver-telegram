@@ -32,7 +32,7 @@ graph TB
 | /providers | Provider management page |
 | /keys | API keys management page |
 | /monitor | Request monitoring and logs page |
-| /cost | Cost management and billing page |
+| /audit | Audit logs page |
 
 ## 4. API Definitions
 The backend already exists. Here's a summary of key endpoints used by frontend:
@@ -91,13 +91,23 @@ interface DashboardStats {
     today_requests: number;
     avg_latency_ms: number;
     success_rate: number;
-    monthly_cost: number;
     provider_stats: Array<{
         provider: string;
         count: number;
         avg_latency_ms: number;
-        total_cost: number;
     }>;
+}
+
+// Audit Logs
+interface AuditLog {
+    id: string;
+    user_id: string;
+    action: string;
+    resource_type?: string;
+    resource_id?: string;
+    details?: any;
+    ip_address?: string;
+    created_at: string;
 }
 ```
 
@@ -109,14 +119,12 @@ graph TD
     B -->|/api/providers| D[Provider Controller]
     B -->|/api/chat| E[Chat Controller]
     B -->|/api/monitor| F[Monitor Controller]
-    B -->|/api/cost| G[Cost Controller]
     B -->|/api/audit| H[Audit Controller]
     
     C --> I[PostgreSQL]
     D --> I
     E --> I
     F --> I
-    G --> I
     H --> I
     
     E --> J[Provider Service]
@@ -131,6 +139,4 @@ The backend database already exists. Key tables used by frontend:
 - `providers` - AI provider configurations
 - `api_keys` - Access keys
 - `requests` - Request logs and metrics
-- `prices` - Pricing configuration
-- `user_quotas` - User usage quotas
 - `audit_logs` - Audit trail
