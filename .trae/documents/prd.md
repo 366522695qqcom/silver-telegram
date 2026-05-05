@@ -24,9 +24,10 @@ AI API Gateway Dashboard is a unified management interface for configuring, moni
 | Dashboard home | Stats overview | Total requests, today's usage, avg latency, success rate |
 | Dashboard home | Real-time chart | Hourly requests in last 24h, with success/failure |
 | Dashboard home | Provider stats | Quick view of each provider's performance |
-| Settings page | Left sidebar | Navigation menu: Providers, Default Model, Web Search, Document Parser, Chat Settings, Keyboard Shortcuts, General Settings |
-| Settings page | Middle pane | Provider list with add button and import from clipboard |
-| Settings page | Right pane | Selected provider config: provider name, API key input with check button, API host, model list with add/reset/get |
+| Settings page | Left sidebar | Navigation menu: Model Providers (active by default), Default Model, Web Search, Document Parser, Chat Settings, Keyboard Shortcuts, General Settings |
+| Settings page | Middle pane | Model provider list with icons & status, "Add" button to create new provider, "Import from Clipboard" button |
+| Settings page | Right pane | Selected provider config: provider name with icon, API key input (with eye toggle & "Check" button), API host input, model list with "Add New", "Reset", "Get" buttons |
+| Settings page | New provider modal | Form to create custom model provider: select type (OpenAI-compatible/Anthropic), name, base URL |
 | Monitor page | Request list | Filterable, paginated table of requests with details |
 | Monitor page | Model stats | Breakdown of requests by model |
 | Audit Logs page | Log list | Display all user operations with timestamps and details |
