@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { v4: uuidv4 } = require('uuid');
 const { query, run } = require('../utils/db');
 const { authenticateToken } = require('../middleware/auth');
 const { authLimiter } = require('../middleware/rateLimit');
@@ -20,18 +21,20 @@ router.post('/register', authLimiter, async (req, res) => {
       return res.status(400).json({ error: 'User already exists' });
     }
 
+    const userId = uuidv4();
     const passwordHash = await bcrypt.hash(password, 10);
-    const result = await run(
-      'INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)',
-      [email, passwordHash, name]
+    await run(
+      'INSERT INTO users (id, email, password_hash, name) VALUES (?, ?, ?, ?)',
+      [userId, email, passwordHash, name || null]
     );
 
-    const userResult = await query('SELECT id, email, name FROM users WHERE id = ?', [result.lastID]);
+    const userResult = await query('SELECT id, email, name FROM users WHERE id = ?', [userId]);
     const user = userResult.rows[0];
     const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN });
 
     res.status(201).json({ user, token });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -60,6 +63,7 @@ router.post('/login', authLimiter, async (req, res) => {
 
     res.json({ user: { id: user.id, email: user.email, name: user.name }, token });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
