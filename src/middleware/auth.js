@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const pool = require('../config/database');
+const { query } = require('../utils/db');
 
 const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -14,7 +14,7 @@ const authenticateToken = async (req, res, next) => {
       return res.status(403).json({ error: 'Invalid token' });
     }
 
-    const result = await pool.query('SELECT id, email, name FROM users WHERE id = $1', [user.id]);
+    const result = await query('SELECT id, email, name FROM users WHERE id = ?', [user.id]);
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'User not found' });
     }
@@ -31,8 +31,8 @@ const authenticateApiKey = async (req, res, next) => {
     return res.status(401).json({ error: 'API key required' });
   }
 
-  const result = await pool.query(
-    'SELECT ak.*, u.id as user_id FROM api_keys ak JOIN users u ON ak.user_id = u.id WHERE ak.key_value = $1 AND ak.enabled = true',
+  const result = await query(
+    'SELECT ak.*, u.id as user_id FROM api_keys ak JOIN users u ON ak.user_id = u.id WHERE ak.key = ? AND ak.enabled = 1',
     [apiKey]
   );
 
@@ -46,13 +46,6 @@ const authenticateApiKey = async (req, res, next) => {
     return res.status(401).json({ error: 'API key has expired' });
   }
 
-  if (apiKeyData.ip_whitelist && apiKeyData.ip_whitelist.length > 0) {
-    const clientIp = req.ip || req.connection.remoteAddress;
-    if (!apiKeyData.ip_whitelist.includes(clientIp)) {
-      return res.status(403).json({ error: 'IP address not whitelisted' });
-    }
-  }
-
   req.apiKey = apiKeyData;
   next();
 };
@@ -62,19 +55,6 @@ const checkApiKeyPermissions = (model, provider) => {
     if (!req.apiKey) {
       return res.status(401).json({ error: 'API key required' });
     }
-
-    if (req.apiKey.allowed_models && req.apiKey.allowed_models.length > 0) {
-      if (!req.apiKey.allowed_models.includes(model)) {
-        return res.status(403).json({ error: `Model ${model} is not allowed for this API key` });
-      }
-    }
-
-    if (req.apiKey.allowed_providers && req.apiKey.allowed_providers.length > 0) {
-      if (!req.apiKey.allowed_providers.includes(provider)) {
-        return res.status(403).json({ error: `Provider ${provider} is not allowed for this API key` });
-      }
-    }
-
     next();
   };
 };
