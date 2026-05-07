@@ -26,17 +26,16 @@ const run = (sql, params = []) => {
 
 const initializeDatabase = () => {
   return new Promise((resolve, reject) => {
-    db.run(`
-      CREATE TABLE IF NOT EXISTS users (
+    const statements = [
+      `CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
         email TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
         name TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-      
-      CREATE TABLE IF NOT EXISTS providers (
+      )`,
+      `CREATE TABLE IF NOT EXISTS providers (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
         provider_name TEXT NOT NULL,
@@ -50,9 +49,8 @@ const initializeDatabase = () => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id)
-      );
-      
-      CREATE TABLE IF NOT EXISTS api_keys (
+      )`,
+      `CREATE TABLE IF NOT EXISTS api_keys (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
         key TEXT UNIQUE NOT NULL,
@@ -61,9 +59,8 @@ const initializeDatabase = () => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         expires_at TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id)
-      );
-      
-      CREATE TABLE IF NOT EXISTS requests (
+      )`,
+      `CREATE TABLE IF NOT EXISTS requests (
         id TEXT PRIMARY KEY,
         api_key_id TEXT NOT NULL,
         provider TEXT NOT NULL,
@@ -76,9 +73,8 @@ const initializeDatabase = () => {
         error_message TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (api_key_id) REFERENCES api_keys(id)
-      );
-      
-      CREATE TABLE IF NOT EXISTS audit_logs (
+      )`,
+      `CREATE TABLE IF NOT EXISTS audit_logs (
         id TEXT PRIMARY KEY,
         user_id TEXT,
         action TEXT NOT NULL,
@@ -89,9 +85,8 @@ const initializeDatabase = () => {
         user_agent TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id)
-      );
-      
-      CREATE TABLE IF NOT EXISTS user_quotas (
+      )`,
+      `CREATE TABLE IF NOT EXISTS user_quotas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id TEXT UNIQUE NOT NULL,
         daily_requests INTEGER DEFAULT 1000,
@@ -100,9 +95,8 @@ const initializeDatabase = () => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id)
-      );
-      
-      CREATE TABLE IF NOT EXISTS prices (
+      )`,
+      `CREATE TABLE IF NOT EXISTS prices (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         provider_name TEXT NOT NULL,
         model TEXT NOT NULL,
@@ -110,14 +104,25 @@ const initializeDatabase = () => {
         completion_price REAL NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `, (err) => {
-      if (err) {
-        reject(err);
-      } else {
+      )`
+    ];
+
+    const executeStatements = (index) => {
+      if (index >= statements.length) {
         resolve();
+        return;
       }
-    });
+      
+      db.run(statements[index], (err) => {
+        if (err) {
+          reject(err);
+        } else {
+          executeStatements(index + 1);
+        }
+      });
+    };
+
+    executeStatements(0);
   });
 };
 
