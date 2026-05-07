@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { auditAPI } from '@/services/api';
 import type { AuditLog } from '@/types';
-import { FileText, User, Server, Key, Settings, Login, Logout, Plus, Edit, Trash2, RefreshCw, Clock, Globe } from 'lucide-react';
+import { FileText, User, Server, Key, Settings, LogIn, LogOut, Plus, Edit, Trash2, RefreshCw, Clock, Globe } from 'lucide-react';
 
 export default function AuditLogs() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -47,10 +47,10 @@ export default function AuditLogs() {
       return <Trash2 className="w-4 h-4 text-red-500" />;
     }
     if (lowerAction.includes('login')) {
-      return <Login className="w-4 h-4 text-purple-500" />;
+      return <LogIn className="w-4 h-4 text-purple-500" />;
     }
     if (lowerAction.includes('logout')) {
-      return <Logout className="w-4 h-4 text-gray-500" />;
+      return <LogOut className="w-4 h-4 text-gray-500" />;
     }
     return <Settings className="w-4 h-4 text-gray-500" />;
   };
