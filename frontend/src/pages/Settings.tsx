@@ -58,7 +58,13 @@ export default function Settings() {
     setIsRefreshingModels(true);
     try {
       const data = await providersAPI.getModels(providerId);
-      setModels(data);
+      if (data && data.models) {
+        setModels(data.models);
+      } else if (Array.isArray(data)) {
+        setModels(data);
+      } else {
+        setModels([]);
+      }
     } catch (error) {
       console.error('Failed to fetch models:', error);
       setModels([]);

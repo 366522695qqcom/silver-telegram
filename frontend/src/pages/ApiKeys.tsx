@@ -101,6 +101,35 @@ export default function ApiKeys() {
 
   return (
     <div className="space-y-6">
+      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
+        <h3 className="text-lg font-semibold text-blue-900 mb-4">如何使用 API 密钥</h3>
+        <div className="space-y-3 text-sm text-blue-800">
+          <div className="flex items-start gap-3">
+            <span className="bg-blue-200 text-blue-900 px-2 py-1 rounded-lg font-semibold text-xs">1</span>
+            <div>
+              <p className="font-medium">调用地址</p>
+              <code className="bg-blue-100 px-2 py-1 rounded text-xs mt-1 inline-block">
+                http://localhost:3000/api/v1/chat/completions
+              </code>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <span className="bg-blue-200 text-blue-900 px-2 py-1 rounded-lg font-semibold text-xs">2</span>
+            <div>
+              <p className="font-medium">认证方式</p>
+              <p className="mt-1">在请求头中添加：<code className="bg-blue-100 px-2 py-1 rounded text-xs">X-API-Key: your_api_key</code></p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <span className="bg-blue-200 text-blue-900 px-2 py-1 rounded-lg font-semibold text-xs">3</span>
+            <div>
+              <p className="font-medium">请求格式</p>
+              <p className="mt-1">支持 OpenAI 兼容格式，provider_id 可选</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-apple-text">API 密钥管理</h2>
