@@ -49,14 +49,14 @@ router.post('/login', authLimiter, async (req, res) => {
 
     const result = await query('SELECT * FROM users WHERE email = ?', [email]);
     if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: '无效的凭证' });
     }
 
     const user = result.rows[0];
     const isValid = await bcrypt.compare(password, user.password_hash);
 
     if (!isValid) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: '无效的凭证' });
     }
 
     const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN });

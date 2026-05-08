@@ -36,6 +36,11 @@ export default function Home() {
   });
 
   useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      return;
+    }
+
     const fetchData = async () => {
       try {
         const [providers, apiKeys, monitorStats, monthly, realtime] = await Promise.all([
