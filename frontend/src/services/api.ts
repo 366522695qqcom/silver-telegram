@@ -1,10 +1,5 @@
+import Cookies from 'js-cookie';
 import type { User, Provider, ApiKey, Request, AuditLog, Model, LoginData, RegisterData, CreateProviderData, CreateApiKeyData, TestConnectionResult } from '@/types';
-
-const API_BASE_URL = '/api';
-
-const getAuthToken = () => {
-  return localStorage.getItem('token');
-};
 
 const request = async <T>(url: string, options: RequestInit = {}): Promise<T> => {
   const headers: HeadersInit = {
@@ -12,22 +7,29 @@ const request = async <T>(url: string, options: RequestInit = {}): Promise<T> =>
     ...options.headers,
   };
 
-  const token = getAuthToken();
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  const response = await fetch(`${API_BASE_URL}${url}`, {
+  const response = await fetch(`/api${url}`, {
     ...options,
     headers,
+    credentials: 'include',
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Request failed');
+    const text = await response.text();
+    let errorMessage = 'Request failed';
+    try {
+      const error = JSON.parse(text);
+      errorMessage = error.error || errorMessage;
+    } catch (e) {
+      errorMessage = text || errorMessage;
+    }
+    throw new Error(errorMessage);
   }
 
-  return response.json();
+  const text = await response.text();
+  if (!text) {
+    return {} as T;
+  }
+  return JSON.parse(text);
 };
 
 export const authAPI = {
@@ -50,7 +52,8 @@ export const authAPI = {
   },
 
   logout: async (): Promise<void> => {
-    localStorage.removeItem('token');
+    Cookies.remove('token');
+    localStorage.removeItem('user');
   },
 };
 
