@@ -99,6 +99,8 @@ export default function ApiKeys() {
     return new Date(dateString).toLocaleDateString('zh-CN');
   };
 
+  const apiBaseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+
   return (
     <div className="space-y-6">
       <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
@@ -109,7 +111,7 @@ export default function ApiKeys() {
             <div>
               <p className="font-medium">调用地址</p>
               <code className="bg-blue-100 px-2 py-1 rounded text-xs mt-1 inline-block">
-                http://localhost:3000/api/v1/chat/completions
+                {apiBaseUrl}/api/v1/chat/completions
               </code>
             </div>
           </div>
