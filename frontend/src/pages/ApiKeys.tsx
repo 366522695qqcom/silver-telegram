@@ -89,9 +89,25 @@ export default function ApiKeys() {
   };
 
   const handleCopy = async (key: string, id: string) => {
-    await navigator.clipboard.writeText(key);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(key);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = key;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (error) {
+      console.error('Failed to copy:', error);
+      alert('复制失败，请手动选择密钥并复制');
+    }
   };
 
   const formatDate = (dateString: string | null) => {
