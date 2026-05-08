@@ -60,8 +60,12 @@ export interface Model {
   id: string;
   name: string;
   owned_by: string;
+}
+
+export interface ModelListResponse {
   provider_id: string;
   provider_name: string;
+  models: Model[];
 }
 
 export interface Stats {

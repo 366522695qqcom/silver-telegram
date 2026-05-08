@@ -1,5 +1,5 @@
 import Cookies from 'js-cookie';
-import type { User, Provider, ApiKey, Request, AuditLog, Model, LoginData, RegisterData, CreateProviderData, CreateApiKeyData, TestConnectionResult } from '@/types';
+import type { User, Provider, ApiKey, Request, AuditLog, Model, ModelListResponse, LoginData, RegisterData, CreateProviderData, CreateApiKeyData, TestConnectionResult } from '@/types';
 
 const request = async <T>(url: string, options: RequestInit = {}): Promise<T> => {
   const headers: HeadersInit = {
@@ -98,7 +98,7 @@ export const providersAPI = {
     });
   },
 
-  getModels: async (providerId?: string): Promise<Model[]> => {
+  getModels: async (providerId?: string): Promise<ModelListResponse> => {
     const url = providerId ? `/providers/${providerId}/models` : '/providers/models';
     return request(url);
   },
