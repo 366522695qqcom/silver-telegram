@@ -127,6 +127,26 @@ router.post('/:id/test', authenticateToken, async (req, res) => {
   }
 });
 
+router.post('/:id/toggle', authenticateToken, async (req, res) => {
+  try {
+    const result = await query('SELECT * FROM providers WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Provider not found' });
+    }
+
+    const provider = result.rows[0];
+    const newEnabled = provider.enabled ? 0 : 1;
+
+    await run('UPDATE providers SET enabled = ? WHERE id = ? AND user_id = ?', [newEnabled, req.params.id, req.user.id]);
+
+    const updated = await query('SELECT id, provider_name, provider_type, base_url, enabled, created_at FROM providers WHERE id = ?', [req.params.id]);
+    res.json(updated.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.get('/:id/models', authenticateToken, async (req, res) => {
   try {
     const result = await query('SELECT * FROM providers WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);

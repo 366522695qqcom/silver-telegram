@@ -1,8 +1,54 @@
 const express = require('express');
 const { query } = require('../utils/db');
 const { authenticateToken } = require('../middleware/auth');
+const { updateStats } = require('../server');
 
 const router = express.Router();
+
+let globalStats = {
+  totalRequests: 0,
+  successCount: 0,
+  errorCount: 0,
+  avgLatency: 0,
+  activeConnections: 0,
+};
+
+router.get('/realtime', authenticateToken, async (req, res) => {
+  try {
+    const totalRequests = await query(
+      'SELECT COUNT(*) as count FROM requests WHERE api_key_id IN (SELECT id FROM api_keys WHERE user_id = ?)',
+      [req.user.id]
+    );
+    const successCount = await query(
+      'SELECT COUNT(*) as count FROM requests WHERE api_key_id IN (SELECT id FROM api_keys WHERE user_id = ?) AND status_code = 200',
+      [req.user.id]
+    );
+    const avgLatency = await query(
+      'SELECT AVG(latency) as avg FROM requests WHERE api_key_id IN (SELECT id FROM api_keys WHERE user_id = ?)',
+      [req.user.id]
+    );
+
+    const total = parseInt(totalRequests.rows[0]?.count) || 0;
+    const success = parseInt(successCount.rows[0]?.count) || 0;
+    const error = total - success;
+
+    res.json({
+      totalRequests: total,
+      successCount: success,
+      errorCount: error,
+      avgLatency: Math.round(parseFloat(avgLatency.rows[0]?.avg) || 0),
+      activeConnections: 1,
+    });
+  } catch (error) {
+    res.json({
+      totalRequests: 0,
+      successCount: 0,
+      errorCount: 0,
+      avgLatency: 0,
+      activeConnections: 0,
+    });
+  }
+});
 
 router.get('/stats', authenticateToken, async (req, res) => {
   try {
@@ -30,6 +76,22 @@ router.get('/stats', authenticateToken, async (req, res) => {
         total_cost: parseFloat(row.total_cost) || 0,
       })),
     });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/requests', authenticateToken, async (req, res) => {
+  try {
+    const { limit = 50, page = 1 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    const result = await query(
+      'SELECT id, provider, model, status_code, latency, prompt_tokens, completion_tokens, cost, error_message, created_at FROM requests WHERE api_key_id IN (SELECT id FROM api_keys WHERE user_id = ?) ORDER BY created_at DESC LIMIT ? OFFSET ?',
+      [req.user.id, parseInt(limit), offset]
+    );
+
+    res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
