@@ -32,6 +32,7 @@ export default function Login() {
       localStorage.setItem('token', result.token);
       setUser(result.user);
       setIsAuthenticated(true);
+      setError(null);
       navigate('/home');
     } catch (error) {
       setError((error as Error).message);

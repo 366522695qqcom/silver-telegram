@@ -2,17 +2,23 @@ const jwt = require('jsonwebtoken');
 const { query } = require('../utils/db');
 
 const authenticateToken = async (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
 
-  if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
-  }
-
-  jwt.verify(token, process.env.JWT_SECRET, async (err, user) => {
-    if (err) {
-      return res.status(403).json({ error: 'Invalid token' });
+    if (!token) {
+      return res.status(401).json({ error: 'Access token required' });
     }
+
+    const user = await new Promise((resolve, reject) => {
+      jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(decoded);
+        }
+      });
+    });
 
     const result = await query('SELECT id, email, name FROM users WHERE id = ?', [user.id]);
     if (result.rows.length === 0) {
@@ -21,7 +27,9 @@ const authenticateToken = async (req, res, next) => {
 
     req.user = result.rows[0];
     next();
-  });
+  } catch (error) {
+    return res.status(403).json({ error: 'Invalid token' });
+  }
 };
 
 const authenticateApiKey = async (req, res, next) => {
