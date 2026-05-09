@@ -96,6 +96,11 @@
 | **Auth Middleware** | API Key验证 | JWT + bcrypt + Cookie |
 | **Provider Service** | 通用API代理服务 | Axios封装 |
 | **Monitor Service** | 实时监控统计 | Socket.IO |
+| **Router Service** | 智能路由与故障转移 | 自定义算法 |
+| **Batch Service** | 请求批处理与队列管理 | Bull / 自定义队列 |
+| **Tool Service** | 函数调用与工具执行 | 安全沙箱 |
+| **Vision Service** | 图像理解与生成 | 多模态API代理 |
+| **Webhook Service** | 回调通知与异步任务 | HTTP Client + 任务队列 |
 | **Database** | 持久化存储 | SQLite (not PostgreSQL) |
 | **Frontend** | Web Dashboard | React 19 + TypeScript + Vite + TailwindCSS |
 | **State Management** | 前端状态管理 | Zustand |
@@ -185,6 +190,69 @@
 | user_agent | VARCHAR(255) | | 用户代理 |
 | created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
 
+### 3.7 路由规则表 (routing_rules)
+
+| 字段名 | 类型 | 约束 | 说明 |
+|-------|------|------|------|
+| id | UUID | PRIMARY KEY | 规则唯一标识 |
+| user_id | UUID | FOREIGN KEY | 关联用户 |
+| name | VARCHAR(100) | NOT NULL | 规则名称 |
+| strategy | VARCHAR(50) | NOT NULL | 路由策略 (latency/cost/availability) |
+| model_filter | TEXT | | 模型过滤条件 |
+| provider_priority | TEXT | | 提供商优先级 |
+| enabled | BOOLEAN | DEFAULT TRUE | 是否启用 |
+| created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
+
+### 3.8 批处理任务表 (batch_tasks)
+
+| 字段名 | 类型 | 约束 | 说明 |
+|-------|------|------|------|
+| id | UUID | PRIMARY KEY | 任务唯一标识 |
+| user_id | UUID | FOREIGN KEY | 关联用户 |
+| api_key_id | UUID | FOREIGN KEY | 关联API Key |
+| name | VARCHAR(100) | NOT NULL | 任务名称 |
+| status | VARCHAR(50) | NOT NULL | 状态 (pending/processing/completed/failed) |
+| requests | TEXT | NOT NULL | 请求列表 (JSON) |
+| results | TEXT | | 结果列表 (JSON) |
+| strategy | VARCHAR(50) | DEFAULT 'parallel' | 执行策略 (parallel/serial) |
+| timeout | INTEGER | DEFAULT 300 | 超时时间(秒) |
+| started_at | TIMESTAMP | | 开始时间 |
+| completed_at | TIMESTAMP | | 完成时间 |
+| created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
+
+### 3.9 工具注册表 (tools)
+
+| 字段名 | 类型 | 约束 | 说明 |
+|-------|------|------|------|
+| id | UUID | PRIMARY KEY | 工具唯一标识 |
+| user_id | UUID | FOREIGN KEY | 关联用户 |
+| name | VARCHAR(100) | NOT NULL | 工具名称 |
+| description | TEXT | | 工具描述 |
+| type | VARCHAR(50) | NOT NULL | 工具类型 (builtin/custom) |
+| schema | TEXT | NOT NULL | OpenAPI/JSON Schema |
+| endpoint | TEXT | | 自定义工具端点 |
+| auth_config | TEXT | | 认证配置 (JSON) |
+| enabled | BOOLEAN | DEFAULT TRUE | 是否启用 |
+| created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
+
+### 3.10 异步任务表 (async_tasks)
+
+| 字段名 | 类型 | 约束 | 说明 |
+|-------|------|------|------|
+| id | UUID | PRIMARY KEY | 任务唯一标识 |
+| user_id | UUID | FOREIGN KEY | 关联用户 |
+| task_type | VARCHAR(50) | NOT NULL | 任务类型 |
+| status | VARCHAR(50) | NOT NULL | 状态 (pending/processing/completed/failed) |
+| payload | TEXT | NOT NULL | 任务载荷 (JSON) |
+| result | TEXT | | 任务结果 (JSON) |
+| webhook_url | TEXT | | 回调URL |
+| webhook_secret | TEXT | | 回调签名密钥 |
+| error_message | TEXT | | 错误信息 |
+| retry_count | INTEGER | DEFAULT 0 | 重试次数 |
+| started_at | TIMESTAMP | | 开始时间 |
+| completed_at | TIMESTAMP | | 完成时间 |
+| created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
+
 ---
 
 ## 4. API接口设计
@@ -240,6 +308,55 @@
 | 端点 | 方法 | 描述 |
 |-----|------|------|
 | `/api/audit/logs` | GET | 获取审计日志列表 |
+
+### 4.7 智能路由接口
+
+| 端点 | 方法 | 描述 |
+|-----|------|------|
+| `/api/routing/rules` | GET | 获取路由规则列表 |
+| `/api/routing/rules` | POST | 创建路由规则 |
+| `/api/routing/rules/:id` | GET | 获取单个路由规则 |
+| `/api/routing/rules/:id` | PUT | 更新路由规则 |
+| `/api/routing/rules/:id` | DELETE | 删除路由规则 |
+| `/api/routing/healthcheck` | POST | 手动触发提供商健康检查 |
+
+### 4.8 批处理接口
+
+| 端点 | 方法 | 描述 |
+|-----|------|------|
+| `/api/batch/tasks` | GET | 获取批处理任务列表 |
+| `/api/batch/tasks` | POST | 创建批处理任务 |
+| `/api/batch/tasks/:id` | GET | 获取任务状态与结果 |
+| `/api/batch/tasks/:id` | DELETE | 取消批处理任务 |
+
+### 4.9 工具调用接口
+
+| 端点 | 方法 | 描述 |
+|-----|------|------|
+| `/api/tools` | GET | 获取可用工具列表 |
+| `/api/tools` | POST | 注册自定义工具 |
+| `/api/tools/:id` | GET | 获取工具详情 |
+| `/api/tools/:id` | PUT | 更新工具配置 |
+| `/api/tools/:id` | DELETE | 删除工具 |
+| `/api/chat/completions` | POST | **增强版：支持 tools 参数** |
+
+### 4.10 图像接口
+
+| 端点 | 方法 | 描述 |
+|-----|------|------|
+| `/api/vision/analyze` | POST | 图像理解分析 (GPT-4V/Claude Vision) |
+| `/api/images/generations` | POST | 图像生成 (DALL-E/Stable Diffusion) |
+| `/api/chat/completions` | POST | **增强版：支持多模态消息 (image_url)** |
+
+### 4.11 异步任务与Webhook接口
+
+| 端点 | 方法 | 描述 |
+|-----|------|------|
+| `/api/async/tasks` | GET | 获取异步任务列表 |
+| `/api/async/tasks` | POST | 创建异步任务 |
+| `/api/async/tasks/:id` | GET | 获取任务状态 |
+| `/api/async/tasks/:id` | DELETE | 取消异步任务 |
+| `/api/webhooks/test` | POST | 测试Webhook配置 |
 
 ---
 
@@ -631,6 +748,69 @@ X-API-Key: <YOUR_API_KEY>
 | T8.7 | 监控页面 | 完成 |
 | T8.8 | 审计日志页面 | 完成 |
 
+### 7.9 阶段九：高级API功能 (待实现)
+| 任务 | 描述 | 状态 |
+|-----|------|------|
+| T9.1 | 智能请求路由与故障转移 | 待开始 |
+| T9.2 | 请求批处理功能 | 待开始 |
+| T9.3 | 函数调用/工具使用 | 待开始 |
+| T9.4 | 图像理解与生成 | 待开始 |
+| T9.5 | 回调与Webhook | 待开始 |
+| T9.6 | 高级功能前端页面 | 待开始 |
+
+#### T9.1 智能请求路由与故障转移
+- **文件**：`src/services/routerService.js`（增强）、`src/routes/routing.js`（新增）
+- **功能**：
+  - 支持多种路由策略：最低延迟、最低成本、最高可用性
+  - 实时健康检查与自动故障转移
+  - 基于模型可用性的智能路由
+  - 自定义路由规则配置
+- **数据库**：新增 `routing_rules` 表
+
+#### T9.2 请求批处理功能
+- **文件**：`src/services/batchService.js`（新增）、`src/routes/batch.js`（新增）
+- **功能**：
+  - 合并多个请求以节省成本
+  - 支持并行和串行两种执行策略
+  - 自动超时与重试机制
+  - 批量任务状态追踪与结果获取
+- **数据库**：新增 `batch_tasks` 表
+
+#### T9.3 函数调用/工具使用
+- **文件**：`src/services/toolService.js`（新增）、`src/routes/tools.js`（新增）、`src/services/providerService.js`（增强）
+- **功能**：
+  - 支持 OpenAI Functions / Anthropic Tools 标准
+  - 内置常用工具集：计算器、搜索、代码执行等
+  - 自定义工具注册与管理
+  - 工具执行安全沙箱
+- **数据库**：新增 `tools` 表
+
+#### T9.4 图像理解与生成
+- **文件**：`src/services/visionService.js`（新增）、`src/routes/vision.js`（新增）、`src/routes/images.js`（新增）
+- **功能**：
+  - Vision API 支持：GPT-4V、Claude 3 Vision
+  - 图像生成集成：DALL-E、Stable Diffusion
+  - 图像处理流水线
+  - 多模态聊天支持（图片+文字）
+
+#### T9.5 回调与Webhook
+- **文件**：`src/services/webhookService.js`（新增）、`src/routes/async.js`（新增）
+- **功能**：
+  - 异步任务处理与队列管理
+  - 完成时 Webhook 通知（带签名验证）
+  - 任务状态持久化与查询
+  - 失败重试机制
+- **数据库**：新增 `async_tasks` 表
+
+#### T9.6 高级功能前端页面
+- **新增页面**：
+  - 路由规则管理页面
+  - 批处理任务管理页面
+  - 工具管理与测试页面
+  - 图像上传与分析页面
+  - 异步任务监控页面
+  - Webhook 配置页面
+
 ---
 
 ## 8. 问题修复记录
@@ -794,7 +974,7 @@ npm run dev
 
 ---
 
-**版本**: v3.0.0  
+**版本**: v4.0.0  
 **创建日期**: 2026-05-05  
 **最后更新**: 2026-05-09  
-**状态**: 完整功能，已修复关键bug
+**状态**: 完整功能，新增高级API功能规格
