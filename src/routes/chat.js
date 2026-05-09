@@ -6,7 +6,34 @@ const routerService = require('../services/routerService');
 const costService = require('../services/costService');
 const cacheService = require('../utils/cache');
 const RetryService = require('../utils/retry');
+const ToolService = require('../services/toolService');
 const { authenticateApiKey } = require('../middleware/auth');
+
+const MAX_TOOL_ITERATIONS = 10;
+
+async function executeToolCall(userId, toolCall) {
+  const functionName = toolCall.function.name;
+  let functionArgs = {};
+  try {
+    functionArgs = JSON.parse(toolCall.function.arguments);
+  } catch (e) {
+    return { error: `Invalid JSON in tool arguments: ${e.message}` };
+  }
+
+  try {
+    const tools = await ToolService.getTools(userId);
+    const matchedTool = tools.find(t => t.name === functionName && t.enabled);
+
+    if (matchedTool) {
+      const result = await ToolService.executeTool(matchedTool, functionArgs);
+      return result;
+    }
+
+    return { error: `Tool "${functionName}" not found in gateway registry. Raw tool_calls returned to client.` };
+  } catch (error) {
+    return { error: error.message };
+  }
+}
 
 const router = express.Router();
 
@@ -16,7 +43,10 @@ router.post('/completions', authenticateApiKey, async (req, res) => {
   let provider;
 
   try {
-    const { provider_id, model, messages, max_tokens = 1000, temperature = 0.7, stream = false } = req.body;
+    const { 
+      provider_id, model, messages, max_tokens = 1000, 
+      temperature = 0.7, stream = false, tools, tool_choice 
+    } = req.body;
 
     if (!model || !messages) {
       return res.status(400).json({ error: 'model and messages are required' });
@@ -35,91 +65,139 @@ router.post('/completions', authenticateApiKey, async (req, res) => {
       provider = result.rows[0];
     }
 
-    const cacheKey = cacheService.generateCacheKey({ model, messages, max_tokens, temperature });
-    if (!stream) {
-      const cached = cacheService.get(cacheKey);
-      if (cached) {
-        const latency = Date.now() - startTime;
-        await run(
-          'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, prompt_tokens, completion_tokens) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-          [requestId, req.apiKey.id, provider.provider_name, model, 200, latency, cached.usage.prompt_tokens, cached.usage.completion_tokens]
+    if (stream) {
+      const retryService = new RetryService();
+      const result = await retryService.execute(async () => {
+        return providerService.chatCompletion(
+          {
+            base_url: provider.base_url,
+            api_key: provider.api_key,
+            provider_type: provider.provider_type,
+          },
+          { model, messages, max_tokens, temperature, stream: true, tools, tool_choice }
         );
-        return res.json(cached);
+      });
+
+      if (result.isStream) {
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        result.data.on('data', (chunk) => res.write(chunk));
+        result.data.on('end', async () => {
+          await routerService.recordProviderStatus(provider.id, true, Date.now() - startTime);
+          res.end();
+        });
+        result.data.on('error', async (err) => {
+          await routerService.recordProviderStatus(provider.id, false, Date.now() - startTime);
+          res.status(500).end(JSON.stringify({ error: err.message }));
+        });
+      } else {
+        await routerService.recordProviderStatus(provider.id, false, Date.now() - startTime);
+        res.status(result.status_code || 500).json({ error: result.error });
       }
-    }
-
-    const retryService = new RetryService();
-    const result = await retryService.execute(async () => {
-      return providerService.chatCompletion(
-        {
-          base_url: provider.base_url,
-          api_key: provider.api_key,
-          provider_type: provider.provider_type,
-        },
-        { model, messages, max_tokens, temperature, stream }
-      );
-    });
-
-    const latency = Date.now() - startTime;
-
-    if (result.isStream) {
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-
-      result.data.on('data', (chunk) => {
-        res.write(chunk);
-      });
-
-      result.data.on('end', async () => {
-        await routerService.recordProviderStatus(provider.id, true, latency);
-        res.end();
-      });
-
-      result.data.on('error', async (err) => {
-        await routerService.recordProviderStatus(provider.id, false, latency);
-        res.status(500).end(JSON.stringify({ error: err.message }));
-      });
-
       return;
     }
 
-    if (result.success) {
-      cacheService.set(cacheKey, result.data);
-      
-      const cost = await costService.calculateCost(
+    const cacheKey = cacheService.generateCacheKey({ model, messages, max_tokens, temperature });
+    const cached = cacheService.get(cacheKey);
+    if (cached) {
+      const latency = Date.now() - startTime;
+      await run(
+        'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, prompt_tokens, completion_tokens) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [requestId, req.apiKey.id, provider.provider_name, model, 200, latency, cached.usage?.prompt_tokens, cached.usage?.completion_tokens]
+      );
+      return res.json(cached);
+    }
+
+    let currentMessages = [...messages];
+    let finalResponse = null;
+    let iteration = 0;
+
+    while (iteration < MAX_TOOL_ITERATIONS) {
+      iteration++;
+
+      const retryService = new RetryService();
+      const result = await retryService.execute(async () => {
+        return providerService.chatCompletion(
+          {
+            base_url: provider.base_url,
+            api_key: provider.api_key,
+            provider_type: provider.provider_type,
+          },
+          { model, messages: currentMessages, max_tokens, temperature, stream: false, tools, tool_choice }
+        );
+      });
+
+      if (!result.success) {
+        await run(
+          'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, error_message) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [requestId, req.apiKey.id, provider.provider_name, model, result.status_code || 500, Date.now() - startTime, result.error]
+        );
+        await routerService.recordProviderStatus(provider.id, false, Date.now() - startTime);
+        return res.status(result.status_code || 500).json({ error: result.error });
+      }
+
+      const responseData = result.data;
+      const choice = responseData.choices?.[0];
+
+      if (!choice?.message?.tool_calls || choice.finish_reason !== 'tool_calls') {
+        finalResponse = responseData;
+        break;
+      }
+
+      currentMessages.push(choice.message);
+
+      for (const toolCall of choice.message.tool_calls) {
+        const toolResult = await executeToolCall(req.apiKey.user_id, toolCall);
+        currentMessages.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          content: JSON.stringify(toolResult),
+        });
+      }
+    }
+
+    if (!finalResponse) {
+      finalResponse = {
+        id: uuidv4(),
+        object: 'chat.completion',
+        model,
+        choices: [{
+          index: 0,
+          message: { role: 'assistant', content: 'Tool calling loop reached maximum iterations.' },
+          finish_reason: 'stop',
+        }],
+        usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+      };
+    }
+
+    const latency = Date.now() - startTime;
+    cacheService.set(cacheKey, finalResponse);
+
+    const cost = await costService.calculateCost(
+      provider.provider_name,
+      model,
+      finalResponse.usage?.prompt_tokens || 0,
+      finalResponse.usage?.completion_tokens || 0
+    );
+
+    await run(
+      'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, prompt_tokens, completion_tokens, cost) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        requestId,
+        req.apiKey.id,
         provider.provider_name,
         model,
-        result.data.usage?.prompt_tokens || 0,
-        result.data.usage?.completion_tokens || 0
-      );
+        200,
+        latency,
+        finalResponse.usage?.prompt_tokens,
+        finalResponse.usage?.completion_tokens,
+        cost,
+      ]
+    );
 
-      await run(
-        'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, prompt_tokens, completion_tokens, cost) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [
-          requestId,
-          req.apiKey.id,
-          provider.provider_name,
-          model,
-          200,
-          latency,
-          result.data.usage?.prompt_tokens,
-          result.data.usage?.completion_tokens,
-          cost,
-        ]
-      );
-
-      await routerService.recordProviderStatus(provider.id, true, latency);
-      res.json(result.data);
-    } else {
-      await run(
-        'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, error_message) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [requestId, req.apiKey.id, provider.provider_name, model, result.status_code || 500, latency, result.error]
-      );
-
-      await routerService.recordProviderStatus(provider.id, false, latency);
-      res.status(result.status_code || 500).json({ error: result.error });
-    }
+    await routerService.recordProviderStatus(provider.id, true, latency);
+    res.json(finalResponse);
   } catch (error) {
     const latency = Date.now() - startTime;
     await run(

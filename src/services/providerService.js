@@ -105,7 +105,7 @@ class ProviderService {
 
   async chatCompletion(config, requestData) {
     const { base_url, api_key, provider_type } = config;
-    const { model, messages, max_tokens, temperature, stream } = requestData;
+    const { model, messages, max_tokens, temperature, stream, tools, tool_choice } = requestData;
     const startTime = Date.now();
 
     try {
@@ -124,9 +124,25 @@ class ProviderService {
         if (requestData.system) {
           payload.system = requestData.system;
         }
+        if (tools && tools.length > 0) {
+          payload.tools = tools.map(t => ({
+            name: t.function?.name || t.name,
+            description: t.function?.description || t.description,
+            input_schema: t.function?.parameters || t.parameters,
+          }));
+          if (tool_choice) {
+            payload.tool_choice = tool_choice;
+          }
+        }
       } else {
         endpoint += '/chat/completions';
         payload.stream = stream;
+        if (tools && tools.length > 0) {
+          payload.tools = tools;
+          if (tool_choice) {
+            payload.tool_choice = tool_choice;
+          }
+        }
       }
 
       const configOptions = getAxiosConfig({ 
@@ -150,9 +166,10 @@ class ProviderService {
 
       return {
         success: true,
-        data: this.normalizeResponse(response.data, provider_type),
+        data: response.data,
         latency_ms: latency,
         isStream: false,
+        raw: true,
       };
     } catch (error) {
       const latency = Date.now() - startTime;
