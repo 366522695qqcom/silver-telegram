@@ -104,6 +104,62 @@ const initializeDatabase = () => {
         completion_price REAL NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )`,
+      `CREATE TABLE IF NOT EXISTS routing_rules (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        strategy TEXT NOT NULL,
+        model_filter TEXT,
+        provider_priority TEXT,
+        enabled INTEGER DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )`,
+      `CREATE TABLE IF NOT EXISTS batch_tasks (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        api_key_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        requests TEXT NOT NULL,
+        results TEXT,
+        strategy TEXT DEFAULT 'parallel',
+        timeout INTEGER DEFAULT 300,
+        started_at TIMESTAMP,
+        completed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (api_key_id) REFERENCES api_keys(id)
+      )`,
+      `CREATE TABLE IF NOT EXISTS tools (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        description TEXT,
+        type TEXT NOT NULL,
+        schema TEXT NOT NULL,
+        endpoint TEXT,
+        auth_config TEXT,
+        enabled INTEGER DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      )`,
+      `CREATE TABLE IF NOT EXISTS async_tasks (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        task_type TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        payload TEXT NOT NULL,
+        result TEXT,
+        webhook_url TEXT,
+        webhook_secret TEXT,
+        error_message TEXT,
+        retry_count INTEGER DEFAULT 0,
+        started_at TIMESTAMP,
+        completed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
       )`
     ];
 

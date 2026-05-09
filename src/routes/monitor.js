@@ -1,17 +1,8 @@
 const express = require('express');
 const { query } = require('../utils/db');
 const { authenticateToken } = require('../middleware/auth');
-const { updateStats } = require('../server');
 
 const router = express.Router();
-
-let globalStats = {
-  totalRequests: 0,
-  successCount: 0,
-  errorCount: 0,
-  avgLatency: 0,
-  activeConnections: 0,
-};
 
 router.get('/realtime', authenticateToken, async (req, res) => {
   try {

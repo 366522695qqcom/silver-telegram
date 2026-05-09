@@ -10,7 +10,12 @@ import {
   Key,
   Server,
   Menu,
-  X
+  X,
+  Route,
+  Package,
+  Wrench,
+  Eye,
+  Zap
 } from 'lucide-react';
 import { useStore } from '@/store';
 
@@ -31,6 +36,11 @@ export default function Layout({ children }: LayoutProps) {
     { icon: Key, path: '/api-keys', label: 'API密钥' },
     { icon: Activity, path: '/monitor', label: '实时监控' },
     { icon: FileText, path: '/audit-logs', label: '审计日志' },
+    { icon: Route, path: '/routing', label: '智能路由' },
+    { icon: Package, path: '/batch', label: '批处理' },
+    { icon: Wrench, path: '/tools', label: '工具管理' },
+    { icon: Eye, path: '/vision', label: '视觉功能' },
+    { icon: Zap, path: '/async', label: '异步任务' },
   ];
 
   const handleLogout = () => {

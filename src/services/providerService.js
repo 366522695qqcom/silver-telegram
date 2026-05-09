@@ -15,8 +15,30 @@ class ProviderService {
         return { success: true, message: 'Anthropic API key validated (no test endpoint)' };
       }
 
-      const response = await axios.get(testEndpoint, { headers, timeout: 10000 });
-      return { success: true, status: response.status, message: 'Connection successful' };
+      const response = await axios.get(testEndpoint, { 
+        headers, 
+        timeout: 10000, 
+        maxRedirects: 0,
+        validateStatus: (status) => true 
+      });
+
+      if ([301, 302, 307, 308].includes(response.status)) {
+        return { 
+          success: false, 
+          status: response.status,
+          message: `目标返回 ${response.status} 重定向，请检查 Base URL 是否正确（Location: ${response.headers.location || 'unknown'}）` 
+        };
+      }
+
+      if (response.status >= 200 && response.status < 300) {
+        return { success: true, status: response.status, message: 'Connection successful' };
+      }
+
+      return { 
+        success: false, 
+        status: response.status,
+        message: response.data?.error?.message || `HTTP ${response.status}` 
+      };
     } catch (error) {
       return { 
         success: false, 
@@ -31,29 +53,77 @@ class ProviderService {
     
     try {
       const headers = this.buildHeaders(provider_type, api_key);
-      const modelsUrl = base_url.replace(/\/$/, '') + '/models';
       
-      const response = await axios.get(modelsUrl, { headers, timeout: 15000 });
+      // 构建 models URL，处理不同情况
+      let modelsUrl = base_url.trim();
       
-      if (response.data?.data) {
-        return response.data.data.map(model => ({
-          id: model.id,
-          name: model.id,
-          owned_by: model.owned_by || 'unknown',
-        }));
+      // 如果 base_url 已经以 /models 结尾，直接使用
+      if (modelsUrl.endsWith('/models')) {
+        // 已经是 models 端点
+      } else if (modelsUrl.includes('/v1')) {
+        // OpenAI 兼容格式: https://api.example.com/v1
+        modelsUrl = modelsUrl.replace(/\/$/, '') + '/models';
+      } else {
+        // 其他情况，尝试添加 /v1/models
+        modelsUrl = modelsUrl.replace(/\/$/, '') + '/v1/models';
       }
       
-      if (Array.isArray(response.data)) {
-        return response.data.map(model => ({
-          id: model.id || model.name,
-          name: model.id || model.name,
-          owned_by: model.owned_by || 'unknown',
-        }));
+      console.log(`Fetching models from: ${modelsUrl}`);
+      
+      // 使用 maxRedirects: 0 禁用自动重定向，手动处理
+      const response = await axios.get(modelsUrl, { 
+        headers, 
+        timeout: 15000,
+        maxRedirects: 0,
+        validateStatus: (status) => true // 接受所有状态码
+      });
+      
+      console.log(`Response status: ${response.status}`);
+      
+      // 处理 301/302/307/308 重定向响应
+      if ([301, 302, 307, 308].includes(response.status)) {
+        const redirectUrl = response.headers.location;
+        throw new Error(`目标返回 ${response.status} 重定向，请检查 Base URL 是否正确（Location: ${redirectUrl || 'unknown'}）`);
+      }
+      
+      // 处理成功响应
+      if (response.status >= 200 && response.status < 300) {
+        if (response.data?.data) {
+          return response.data.data.map(model => ({
+            id: model.id,
+            name: model.id,
+            owned_by: model.owned_by || 'unknown',
+          }));
+        }
+        
+        if (Array.isArray(response.data)) {
+          return response.data.map(model => ({
+            id: model.id || model.name,
+            name: model.id || model.name,
+            owned_by: model.owned_by || 'unknown',
+          }));
+        }
       }
 
+      // 其他错误状态
+      console.error(`Unexpected status code: ${response.status}`);
+      if (response.data) {
+        console.error('Response data:', response.data);
+      }
       return [];
+      
     } catch (error) {
-      throw new Error(`Failed to fetch models: ${error.response?.data?.error?.message || error.message}`);
+      console.error(`Failed to fetch models from ${base_url}:`, error.message);
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response headers:', error.response.headers);
+        console.error('Response data:', error.response.data);
+      }
+      // 如果已经是自定义错误，直接抛出
+      if (error.message.includes('重定向')) {
+        throw error;
+      }
+      throw new Error(`无法获取模型列表: ${error.message}`);
     }
   }
 

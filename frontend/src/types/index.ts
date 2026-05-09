@@ -7,17 +7,17 @@ export interface User {
 
 export interface Provider {
   id: string;
-  user_id: string;
+  user_id?: string;
   provider_name: string;
   provider_type: string;
-  api_key: string;
+  api_key?: string;
   base_url: string;
   enabled: number;
-  avg_latency: number;
-  last_success_at: string | null;
-  last_failed_at: string | null;
+  avg_latency?: number;
+  last_success_at?: string | null;
+  last_failed_at?: string | null;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 export interface ApiKey {
