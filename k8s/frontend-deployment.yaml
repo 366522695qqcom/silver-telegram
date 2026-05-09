@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-gateway-frontend
+  namespace: ai-gateway
+  labels:
+    app: ai-gateway-frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ai-gateway-frontend
+  template:
+    metadata:
+      labels:
+        app: ai-gateway-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: ai-gateway-frontend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 10

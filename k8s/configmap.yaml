@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ai-gateway-config
+  namespace: ai-gateway
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  DATABASE_URL: "sqlite://./data/local.db"
+  JWT_EXPIRES_IN: "7d"
+  LOG_LEVEL: "info"
