@@ -18,6 +18,21 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
+router.get('/:id', authenticateToken, async (req, res) => {
+  try {
+    const result = await query(
+      'SELECT * FROM providers WHERE id = ? AND user_id = ?',
+      [req.params.id, req.user.id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Provider not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.post('/', authenticateToken, async (req, res) => {
   try {
     const { provider_name, provider_type, api_key, base_url } = req.body;
