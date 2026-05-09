@@ -2,10 +2,18 @@ import Cookies from 'js-cookie';
 import type { User, Provider, ApiKey, Request, AuditLog, ModelListResponse, LoginData, RegisterData, CreateProviderData, CreateApiKeyData, TestConnectionResult } from '@/types';
 
 const request = async <T>(url: string, options: RequestInit = {}): Promise<T> => {
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
   };
+
+  const token = localStorage.getItem('token');
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  if (options.headers) {
+    Object.assign(headers, options.headers);
+  }
 
   const response = await fetch(`/api${url}`, {
     ...options,
