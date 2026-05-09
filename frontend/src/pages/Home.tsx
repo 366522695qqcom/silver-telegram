@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '@/store';
 import { providersAPI, apiKeysAPI, monitorAPI, costAPI } from '@/services/api';
-import { Activity, Server, Key, Clock, TrendingUp, Users } from 'lucide-react';
+import { Activity, Server, Key, Clock, TrendingUp } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 
 export default function Home() {

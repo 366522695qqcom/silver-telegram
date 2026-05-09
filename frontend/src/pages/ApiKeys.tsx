@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useStore } from '@/store';
 import { apiKeysAPI } from '@/services/api';
 import type { ApiKey, CreateApiKeyData } from '@/types';
-import { Plus, Edit, Trash2, ToggleLeft, ToggleRight, Copy, RefreshCw, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import { Plus, Edit, Trash2, Copy, RefreshCw, CheckCircle, Eye, EyeOff } from 'lucide-react';
 
 export default function ApiKeys() {
   const { apiKeys, setApiKeys } = useStore();
