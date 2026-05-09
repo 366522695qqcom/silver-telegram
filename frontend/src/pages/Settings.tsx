@@ -586,13 +586,22 @@ export default function Settings() {
               </div>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center">
+            <div className="flex-1 flex items-center justify-center p-8">
               <div className="text-center animate-apple-slide-up">
-                <div className="w-24 h-24 rounded-full bg-apple-gray-bg flex items-center justify-center mx-auto mb-6">
+                <div className="w-24 h-24 rounded-full bg-apple-gray-bg flex items-center justify-center mx-auto mb-8">
                   <Globe className="w-12 h-12 text-apple-text-secondary opacity-50" />
                 </div>
-                <p className="text-lg font-semibold text-apple-text mb-3">选择或创建一个提供商</p>
-                <p className="text-sm text-apple-text-secondary leading-relaxed">在左侧列表中选择现有提供商<br />或创建新的提供商</p>
+                <p className="text-lg font-semibold text-apple-text mb-4">
+                  选择或创建一个提供商
+                </p>
+                <div className="space-y-1">
+                  <p className="text-sm text-apple-text-secondary">
+                    在左侧列表中选择现有提供商
+                  </p>
+                  <p className="text-sm text-apple-text-secondary">
+                    或创建新的提供商
+                  </p>
+                </div>
               </div>
             </div>
           )}
