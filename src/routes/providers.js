@@ -18,6 +18,34 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
+router.get('/models', authenticateToken, async (req, res) => {
+  try {
+    const providersResult = await query(
+      'SELECT * FROM providers WHERE user_id = ? AND enabled = 1 LIMIT 1',
+      [req.user.id]
+    );
+
+    if (providersResult.rows.length === 0) {
+      return res.json({ models: [] });
+    }
+
+    const provider = providersResult.rows[0];
+    const models = await require('../services/providerService').getModels({
+      base_url: provider.base_url,
+      api_key: provider.api_key,
+      provider_type: provider.provider_type,
+    });
+
+    res.json({
+      provider_id: provider.id,
+      provider_name: provider.provider_name,
+      models,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const result = await query(
@@ -159,34 +187,6 @@ router.post('/:id/toggle', authenticateToken, async (req, res) => {
     res.json(updated.rows[0]);
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-router.get('/models', authenticateToken, async (req, res) => {
-  try {
-    const providersResult = await query(
-      'SELECT * FROM providers WHERE user_id = ? AND enabled = 1 LIMIT 1',
-      [req.user.id]
-    );
-
-    if (providersResult.rows.length === 0) {
-      return res.json({ models: [] });
-    }
-
-    const provider = providersResult.rows[0];
-    const models = await providerService.getModels({
-      base_url: provider.base_url,
-      api_key: provider.api_key,
-      provider_type: provider.provider_type,
-    });
-
-    res.json({
-      provider_id: provider.id,
-      provider_name: provider.provider_name,
-      models,
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
   }
 });
 

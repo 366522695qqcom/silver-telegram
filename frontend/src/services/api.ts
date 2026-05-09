@@ -188,7 +188,8 @@ export const auditAPI = {
     const params = new URLSearchParams();
     if (page) params.set('page', page.toString());
     if (limit) params.set('limit', limit.toString());
-    return request(`/audit/logs?${params.toString()}`);
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    return request(`/audit${queryString}`);
   },
 };
 
@@ -247,25 +248,29 @@ export const costAPI = {
 
 export const routingAPI = {
   getRules: async (): Promise<any[]> => {
-    return request('/routing/rules');
+    const result: any = await request('/routing/rules');
+    return result.rules || [];
   },
 
   getRuleById: async (id: string): Promise<any> => {
-    return request(`/routing/rules/${id}`);
+    const result: any = await request(`/routing/rules/${id}`);
+    return result.rule;
   },
 
   createRule: async (data: any): Promise<any> => {
-    return request('/routing/rules', {
+    const result: any = await request('/routing/rules', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    return result.rule;
   },
 
   updateRule: async (id: string, data: any): Promise<any> => {
-    return request(`/routing/rules/${id}`, {
+    const result: any = await request(`/routing/rules/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
+    return result.rule;
   },
 
   deleteRule: async (id: string): Promise<void> => {
@@ -275,33 +280,38 @@ export const routingAPI = {
   },
 
   runHealthCheck: async (): Promise<any[]> => {
-    return request('/routing/healthcheck', {
+    const result: any = await request('/routing/healthcheck', {
       method: 'POST',
     });
+    return result.results || [];
   },
 };
 
 export const batchAPI = {
   getTasks: async (): Promise<any[]> => {
-    return request('/batch/tasks');
+    const result: any = await request('/batch/tasks');
+    return result.tasks || [];
   },
 
   getTaskById: async (id: string): Promise<any> => {
-    return request(`/batch/tasks/${id}`);
+    const result: any = await request(`/batch/tasks/${id}`);
+    return result.task;
   },
 
   createTask: async (data: any): Promise<any> => {
-    return request('/batch/tasks', {
+    const result: any = await request('/batch/tasks', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    return result.task;
   },
 
   executeTask: async (id: string, providerId: string): Promise<any> => {
-    return request(`/batch/tasks/${id}/execute`, {
+    const result: any = await request(`/batch/tasks/${id}/execute`, {
       method: 'POST',
       body: JSON.stringify({ provider_id: providerId }),
     });
+    return result.task;
   },
 
   deleteTask: async (id: string): Promise<void> => {
@@ -313,25 +323,29 @@ export const batchAPI = {
 
 export const toolsAPI = {
   getAll: async (): Promise<any[]> => {
-    return request('/tools');
+    const result: any = await request('/tools');
+    return result.tools || [];
   },
 
   getById: async (id: string): Promise<any> => {
-    return request(`/tools/${id}`);
+    const result: any = await request(`/tools/${id}`);
+    return result.tool;
   },
 
   create: async (data: any): Promise<any> => {
-    return request('/tools', {
+    const result: any = await request('/tools', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    return result.tool;
   },
 
   update: async (id: string, data: any): Promise<any> => {
-    return request(`/tools/${id}`, {
+    const result: any = await request(`/tools/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
+    return result.tool;
   },
 
   delete: async (id: string): Promise<void> => {
@@ -375,18 +389,21 @@ export const imagesAPI = {
 
 export const asyncAPI = {
   getTasks: async (): Promise<any[]> => {
-    return request('/async/tasks');
+    const result: any = await request('/async/tasks');
+    return result.tasks || [];
   },
 
   getTaskById: async (id: string): Promise<any> => {
-    return request(`/async/tasks/${id}`);
+    const result: any = await request(`/async/tasks/${id}`);
+    return result.task;
   },
 
   createTask: async (data: any): Promise<any> => {
-    return request('/async/tasks', {
+    const result: any = await request('/async/tasks', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    return result.task;
   },
 
   deleteTask: async (id: string): Promise<void> => {
