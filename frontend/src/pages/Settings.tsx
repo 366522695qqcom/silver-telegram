@@ -49,10 +49,10 @@ export default function Settings() {
   }, [setProviders]);
 
   useEffect(() => {
-    if (selectedProvider) {
+    if (selectedProvider && selectedProvider.id) {
       fetchModels(selectedProvider.id);
     }
-  }, [selectedProvider]);
+  }, [selectedProvider?.id]);
 
   const fetchModels = async (providerId: string) => {
     setIsRefreshingModels(true);

@@ -9,15 +9,11 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://127.0.0.1:3000',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path,
-        configure: (proxy, options) => {
-          proxy.on('error', (err, req, res) => {
-            console.log('proxy error', err);
-          });
-        },
+        ws: false,
+        followRedirects: false,
       },
     },
   },
