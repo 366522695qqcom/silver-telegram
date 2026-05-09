@@ -73,27 +73,16 @@ export default function Settings() {
     }
   };
 
-  const handleSelectProvider = async (provider: Provider) => {
+  const handleSelectProvider = (provider: Provider) => {
     setSelectedProvider(provider);
     setIsEditing(false);
     setTestResult(null);
     setFormData({
       provider_name: provider.provider_name,
       provider_type: provider.provider_type,
-      api_key: '',
+      api_key: (provider as any).api_key || '',
       base_url: provider.base_url,
     });
-    try {
-      const fullProvider = await providersAPI.getById(provider.id);
-      setFormData({
-        provider_name: fullProvider.provider_name,
-        provider_type: fullProvider.provider_type,
-        api_key: fullProvider.api_key,
-        base_url: fullProvider.base_url,
-      });
-    } catch (error) {
-      console.error('Failed to fetch provider details:', error);
-    }
   };
 
   const handleCreate = async () => {
