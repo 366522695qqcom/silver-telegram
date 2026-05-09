@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Trash2, Play, Eye, MoreHorizontal } from 'lucide-react';
-import { api } from '@/services/api';
+import { batchAPI } from '@/services/api';
 
 interface BatchTask {
   id: string;
@@ -30,8 +30,8 @@ export default function BatchTasks() {
   const loadTasks = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/batch/tasks');
-      setTasks(res.tasks);
+      const res = await batchAPI.getTasks();
+      setTasks(res);
     } catch (error) {
       console.error('Failed to load tasks:', error);
     } finally {
@@ -46,7 +46,7 @@ export default function BatchTasks() {
         ...form,
         requests: JSON.parse(form.requests)
       };
-      await api.post('/batch/tasks', data);
+      await batchAPI.createTask(data);
       setShowModal(false);
       resetForm();
       loadTasks();
@@ -63,7 +63,7 @@ export default function BatchTasks() {
   const handleDelete = async (id: string) => {
     if (!confirm('确定要删除此任务吗？')) return;
     try {
-      await api.delete(`/batch/tasks/${id}`);
+      await batchAPI.deleteTask(id);
       loadTasks();
     } catch (error) {
       console.error('Failed to delete task:', error);

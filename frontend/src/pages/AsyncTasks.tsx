@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Trash2, Eye, MoreHorizontal, Webhook } from 'lucide-react';
-import { api } from '@/services/api';
+import { asyncAPI, webhookAPI } from '@/services/api';
 
 interface AsyncTask {
   id: string;
@@ -35,8 +35,8 @@ export default function AsyncTasks() {
   const loadTasks = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/async/tasks');
-      setTasks(res.tasks);
+      const res = await asyncAPI.getTasks();
+      setTasks(res);
     } catch (error) {
       console.error('Failed to load tasks:', error);
     } finally {
@@ -51,7 +51,7 @@ export default function AsyncTasks() {
         ...form,
         payload: JSON.parse(form.payload)
       };
-      await api.post('/async/tasks', data);
+      await asyncAPI.createTask(data);
       setShowModal(false);
       resetForm();
       loadTasks();
@@ -68,7 +68,7 @@ export default function AsyncTasks() {
   const handleDelete = async (id: string) => {
     if (!confirm('确定要删除此任务吗？')) return;
     try {
-      await api.delete(`/async/tasks/${id}`);
+      await asyncAPI.deleteTask(id);
       loadTasks();
     } catch (error) {
       console.error('Failed to delete task:', error);
@@ -77,10 +77,7 @@ export default function AsyncTasks() {
 
   const handleTestWebhook = async () => {
     try {
-      const res = await api.post('/webhooks/test', {
-        webhook_url: testWebhook.url,
-        webhook_secret: testWebhook.secret || undefined
-      });
+      const res = await webhookAPI.test(testWebhook.url, testWebhook.secret);
       setTestResult(res);
     } catch (error) {
       console.error('Failed to test webhook:', error);

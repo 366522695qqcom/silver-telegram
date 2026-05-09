@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Image, Upload, Eye, Send, Sparkles } from 'lucide-react';
-import { api } from '@/services/api';
+import { visionAPI, imagesAPI, providersAPI } from '@/services/api';
 
 interface Provider {
   id: string;
@@ -27,10 +27,10 @@ export default function Vision() {
 
   const loadProviders = async () => {
     try {
-      const res = await api.get('/providers');
-      setProviders(res.providers);
-      if (res.providers.length > 0) {
-        setSelectedProvider(res.providers[0].id);
+      const res = await providersAPI.getAll();
+      setProviders(res);
+      if (res.length > 0) {
+        setSelectedProvider(res[0].id);
       }
     } catch (error) {
       console.error('Failed to load providers:', error);
@@ -41,11 +41,7 @@ export default function Vision() {
     if (!selectedProvider || !imageUrl) return;
     try {
       setLoading(true);
-      const res = await api.post('/vision/analyze', {
-        image_url: imageUrl,
-        prompt,
-        provider_id: selectedProvider
-      });
+      const res = await visionAPI.analyzeImage(imageUrl, prompt, selectedProvider);
       setResult(res);
     } catch (error) {
       console.error('Failed to analyze image:', error);
@@ -59,11 +55,7 @@ export default function Vision() {
     if (!selectedProvider || !prompt) return;
     try {
       setLoading(true);
-      const res = await api.post('/images/generations', {
-        prompt,
-        provider_id: selectedProvider,
-        options: genOptions
-      });
+      const res = await imagesAPI.generate(prompt, selectedProvider, genOptions);
       setResult(res);
     } catch (error) {
       console.error('Failed to generate image:', error);

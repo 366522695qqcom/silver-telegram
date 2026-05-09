@@ -1,11 +1,11 @@
 const express = require('express');
-const authMiddleware = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/auth');
 const RoutingService = require('../services/routingService');
 const { query } = require('../utils/db');
 
 const router = express.Router();
 
-router.use(authMiddleware);
+router.use(authenticateToken);
 
 router.get('/rules', async (req, res) => {
   try {

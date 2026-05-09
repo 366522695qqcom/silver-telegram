@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Trash2, Edit, Play, Eye, MoreHorizontal } from 'lucide-react';
-import { api } from '@/services/api';
+import { toolsAPI } from '@/services/api';
 
 interface Tool {
   id: string;
@@ -40,8 +40,8 @@ export default function Tools() {
   const loadTools = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/tools');
-      setTools(res.tools);
+      const res = await toolsAPI.getAll();
+      setTools(res);
     } catch (error) {
       console.error('Failed to load tools:', error);
     } finally {
@@ -59,9 +59,9 @@ export default function Tools() {
       };
       
       if (editingTool) {
-        await api.put(`/tools/${editingTool.id}`, data);
+        await toolsAPI.update(editingTool.id, data);
       } else {
-        await api.post('/tools', data);
+        await toolsAPI.create(data);
       }
       
       setShowModal(false);
@@ -99,7 +99,7 @@ export default function Tools() {
     if (!executingTool) return;
     try {
       const params = JSON.parse(execParams);
-      const res = await api.post(`/tools/${executingTool.id}/execute`, { parameters: params });
+      const res = await toolsAPI.execute(executingTool.id, params);
       setExecResult(res);
     } catch (error) {
       console.error('Failed to execute tool:', error);
@@ -110,7 +110,7 @@ export default function Tools() {
   const handleDelete = async (id: string) => {
     if (!confirm('确定要删除此工具吗？')) return;
     try {
-      await api.delete(`/tools/${id}`);
+      await toolsAPI.delete(id);
       loadTools();
     } catch (error) {
       console.error('Failed to delete tool:', error);

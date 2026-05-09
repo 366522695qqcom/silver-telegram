@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Plus, Trash2, RefreshCw, Edit, MoreHorizontal } from 'lucide-react';
-import { api } from '@/services/api';
+import { routingAPI } from '@/services/api';
 
 interface RoutingRule {
   id: string;
@@ -32,8 +32,8 @@ export default function RoutingRules() {
   const loadRules = async () => {
     try {
       setLoading(true);
-      const res = await api.get('/routing/rules');
-      setRules(res.rules);
+      const res = await routingAPI.getRules();
+      setRules(res);
     } catch (error) {
       console.error('Failed to load rules:', error);
     } finally {
@@ -52,9 +52,9 @@ export default function RoutingRules() {
       };
       
       if (editingRule) {
-        await api.put(`/routing/rules/${editingRule.id}`, data);
+        await routingAPI.updateRule(editingRule.id, data);
       } else {
-        await api.post('/routing/rules', data);
+        await routingAPI.createRule(data);
       }
       
       setShowModal(false);
@@ -81,7 +81,7 @@ export default function RoutingRules() {
   const handleDelete = async (id: string) => {
     if (!confirm('确定要删除此规则吗？')) return;
     try {
-      await api.delete(`/routing/rules/${id}`);
+      await routingAPI.deleteRule(id);
       loadRules();
     } catch (error) {
       console.error('Failed to delete rule:', error);

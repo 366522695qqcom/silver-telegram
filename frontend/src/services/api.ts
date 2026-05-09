@@ -244,3 +244,163 @@ export const costAPI = {
     });
   },
 };
+
+export const routingAPI = {
+  getRules: async (): Promise<any[]> => {
+    return request('/routing/rules');
+  },
+
+  getRuleById: async (id: string): Promise<any> => {
+    return request(`/routing/rules/${id}`);
+  },
+
+  createRule: async (data: any): Promise<any> => {
+    return request('/routing/rules', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateRule: async (id: string, data: any): Promise<any> => {
+    return request(`/routing/rules/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteRule: async (id: string): Promise<void> => {
+    return request(`/routing/rules/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  runHealthCheck: async (): Promise<any[]> => {
+    return request('/routing/healthcheck', {
+      method: 'POST',
+    });
+  },
+};
+
+export const batchAPI = {
+  getTasks: async (): Promise<any[]> => {
+    return request('/batch/tasks');
+  },
+
+  getTaskById: async (id: string): Promise<any> => {
+    return request(`/batch/tasks/${id}`);
+  },
+
+  createTask: async (data: any): Promise<any> => {
+    return request('/batch/tasks', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  executeTask: async (id: string, providerId: string): Promise<any> => {
+    return request(`/batch/tasks/${id}/execute`, {
+      method: 'POST',
+      body: JSON.stringify({ provider_id: providerId }),
+    });
+  },
+
+  deleteTask: async (id: string): Promise<void> => {
+    return request(`/batch/tasks/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+export const toolsAPI = {
+  getAll: async (): Promise<any[]> => {
+    return request('/tools');
+  },
+
+  getById: async (id: string): Promise<any> => {
+    return request(`/tools/${id}`);
+  },
+
+  create: async (data: any): Promise<any> => {
+    return request('/tools', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  update: async (id: string, data: any): Promise<any> => {
+    return request(`/tools/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  delete: async (id: string): Promise<void> => {
+    return request(`/tools/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  execute: async (id: string, parameters: any): Promise<any> => {
+    return request(`/tools/${id}/execute`, {
+      method: 'POST',
+      body: JSON.stringify({ parameters }),
+    });
+  },
+};
+
+export const visionAPI = {
+  analyzeImage: async (imageUrl: string, prompt: string, providerId: string): Promise<any> => {
+    return request('/vision/analyze', {
+      method: 'POST',
+      body: JSON.stringify({ image_url: imageUrl, prompt, provider_id: providerId }),
+    });
+  },
+
+  visionChat: async (messages: any[], providerId: string, options?: any): Promise<any> => {
+    return request('/vision/chat', {
+      method: 'POST',
+      body: JSON.stringify({ messages, provider_id: providerId, options }),
+    });
+  },
+};
+
+export const imagesAPI = {
+  generate: async (prompt: string, providerId: string, options?: any): Promise<any> => {
+    return request('/images/generations', {
+      method: 'POST',
+      body: JSON.stringify({ prompt, provider_id: providerId, options }),
+    });
+  },
+};
+
+export const asyncAPI = {
+  getTasks: async (): Promise<any[]> => {
+    return request('/async/tasks');
+  },
+
+  getTaskById: async (id: string): Promise<any> => {
+    return request(`/async/tasks/${id}`);
+  },
+
+  createTask: async (data: any): Promise<any> => {
+    return request('/async/tasks', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteTask: async (id: string): Promise<void> => {
+    return request(`/async/tasks/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+export const webhookAPI = {
+  test: async (webhookUrl: string, webhookSecret?: string): Promise<any> => {
+    return request('/webhooks/test', {
+      method: 'POST',
+      body: JSON.stringify({ webhook_url: webhookUrl, webhook_secret: webhookSecret }),
+    });
+  },
+};
