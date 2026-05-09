@@ -53,22 +53,7 @@ class ProviderService {
 
       return [];
     } catch (error) {
-      // 如果获取模型失败，返回默认模型列表而不是抛出错误
-      console.warn(`Failed to fetch models, using defaults:`, error.message);
-      
-      // 根据提供商类型返回一些默认模型
-      if (provider_type === 'openai') {
-        return [
-          { id: 'gpt-4', name: 'gpt-4', owned_by: 'openai' },
-          { id: 'gpt-3.5-turbo', name: 'gpt-3.5-turbo', owned_by: 'openai' },
-        ];
-      } else if (provider_type === 'anthropic') {
-        return [
-          { id: 'claude-3-opus', name: 'claude-3-opus', owned_by: 'anthropic' },
-          { id: 'claude-3-sonnet', name: 'claude-3-sonnet', owned_by: 'anthropic' },
-        ];
-      }
-      
+      console.warn(`Failed to fetch models:`, error.message);
       return [];
     }
   }
