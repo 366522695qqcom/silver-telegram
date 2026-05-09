@@ -31,9 +31,45 @@ class ProviderService {
     
     try {
       const headers = this.buildHeaders(provider_type, api_key);
-      const modelsUrl = base_url.replace(/\/$/, '') + '/models';
       
-      const response = await axios.get(modelsUrl, { headers, timeout: 15000, maxRedirects: 5 });
+      // 构建 models URL，处理不同情况
+      let modelsUrl = base_url.trim();
+      
+      // 如果 base_url 已经以 /models 结尾，直接使用
+      if (modelsUrl.endsWith('/models')) {
+        // 已经是 models 端点
+      } else if (modelsUrl.includes('/v1')) {
+        // OpenAI 兼容格式: https://api.example.com/v1
+        modelsUrl = modelsUrl.replace(/\/$/, '') + '/models';
+      } else {
+        // 其他情况，尝试添加 /v1/models
+        modelsUrl = modelsUrl.replace(/\/$/, '') + '/v1/models';
+      }
+      
+      console.log(`Fetching models from: ${modelsUrl}`);
+      
+      const response = await axios.get(modelsUrl, { 
+        headers, 
+        timeout: 15000,
+        validateStatus: (status) => status < 500
+      });
+      
+      // 处理 301/302 重定向响应
+      if (response.status === 301 || response.status === 302) {
+        const redirectUrl = response.headers.location;
+        if (redirectUrl) {
+          console.log(`Following redirect to: ${redirectUrl}`);
+          const redirectResponse = await axios.get(redirectUrl, { headers, timeout: 15000 });
+          if (redirectResponse.data?.data) {
+            return redirectResponse.data.data.map(model => ({
+              id: model.id,
+              name: model.id,
+              owned_by: model.owned_by || 'unknown',
+            }));
+          }
+        }
+        return [];
+      }
       
       if (response.data?.data) {
         return response.data.data.map(model => ({
@@ -53,8 +89,12 @@ class ProviderService {
 
       return [];
     } catch (error) {
-      console.warn(`Failed to fetch models:`, error.message);
-      return [];
+      console.error(`Failed to fetch models from ${base_url}:`, error.message);
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response data:', error.response.data);
+      }
+      throw new Error(`无法获取模型列表: ${error.message}`);
     }
   }
 
