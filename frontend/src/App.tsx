@@ -8,6 +8,11 @@ import Settings from '@/pages/Settings';
 import ApiKeys from '@/pages/ApiKeys';
 import Monitor from '@/pages/Monitor';
 import AuditLogs from '@/pages/AuditLogs';
+import RoutingRules from '@/pages/RoutingRules';
+import BatchTasks from '@/pages/BatchTasks';
+import Tools from '@/pages/Tools';
+import Vision from '@/pages/Vision';
+import AsyncTasks from '@/pages/AsyncTasks';
 import Layout from '@/components/Layout';
 
 export default function App() {
@@ -93,8 +98,53 @@ export default function App() {
             </Layout>
           ) : (
             <Navigate to="/" />
-          )
-        } />
+          )}
+      />
+      <Route path="/routing" element={
+          isAuthenticated ? (
+            <Layout>
+              <RoutingRules />
+            </Layout>
+          ) : (
+            <Navigate to="/" />
+          )}
+      />
+      <Route path="/batch" element={
+          isAuthenticated ? (
+            <Layout>
+              <BatchTasks />
+            </Layout>
+          ) : (
+            <Navigate to="/" />
+          )}
+      />
+      <Route path="/tools" element={
+          isAuthenticated ? (
+            <Layout>
+              <Tools />
+            </Layout>
+          ) : (
+            <Navigate to="/" />
+          )}
+      />
+      <Route path="/vision" element={
+          isAuthenticated ? (
+            <Layout>
+              <Vision />
+            </Layout>
+          ) : (
+            <Navigate to="/" />
+          )}
+      />
+      <Route path="/async" element={
+          isAuthenticated ? (
+            <Layout>
+              <AsyncTasks />
+            </Layout>
+          ) : (
+            <Navigate to="/" />
+          )}
+      />
       </Routes>
     </BrowserRouter>
   );
