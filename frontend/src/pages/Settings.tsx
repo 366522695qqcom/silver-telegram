@@ -192,12 +192,12 @@ export default function Settings() {
           
           <div className="flex-1 overflow-y-auto p-3">
             {providers.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-apple-text-secondary">
-                <div className="w-20 h-20 rounded-apple-full apple-gray-bg flex items-center justify-center mb-4">
+              <div className="h-full flex flex-col items-center justify-center text-apple-text-secondary px-4">
+                <div className="w-20 h-20 rounded-full bg-apple-gray-bg flex items-center justify-center mb-4">
                   <Globe className="w-10 h-10 opacity-50" />
                 </div>
-                <p className="text-sm font-medium mb-1">暂无提供商</p>
-                <p className="text-xs opacity-70">点击上方按钮添加</p>
+                <p className="text-sm font-medium mb-2">暂无提供商</p>
+                <p className="text-xs opacity-70 text-center">点击上方按钮添加</p>
               </div>
             ) : (
               <ul className="space-y-2">
@@ -588,11 +588,11 @@ export default function Settings() {
           ) : (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center animate-apple-slide-up">
-                <div className="w-24 h-24 rounded-apple-full apple-gray-bg flex items-center justify-center mx-auto mb-6">
+                <div className="w-24 h-24 rounded-full bg-apple-gray-bg flex items-center justify-center mx-auto mb-6">
                   <Globe className="w-12 h-12 text-apple-text-secondary opacity-50" />
                 </div>
-                <p className="text-lg font-semibold text-apple-text mb-2">选择或创建一个提供商</p>
-                <p className="text-sm text-apple-text-secondary">在左侧列表中选择现有提供商或创建新的提供商</p>
+                <p className="text-lg font-semibold text-apple-text mb-3">选择或创建一个提供商</p>
+                <p className="text-sm text-apple-text-secondary leading-relaxed">在左侧列表中选择现有提供商<br />或创建新的提供商</p>
               </div>
             </div>
           )}
