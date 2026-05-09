@@ -9,7 +9,7 @@ const router = express.Router();
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const result = await query(
-      'SELECT id, provider_name, provider_type, base_url, enabled, created_at FROM providers WHERE user_id = ?',
+      'SELECT id, provider_name, provider_type, base_url, enabled, created_at, api_key, avg_latency, last_success_at, last_failed_at FROM providers WHERE user_id = ?',
       [req.user.id]
     );
     res.json(result.rows);
@@ -76,7 +76,7 @@ router.post('/', authenticateToken, async (req, res) => {
     );
 
     const result = await query(
-      'SELECT id, provider_name, provider_type, base_url, enabled, created_at FROM providers WHERE id = ?',
+      'SELECT id, provider_name, provider_type, base_url, enabled, created_at, api_key, avg_latency, last_success_at, last_failed_at FROM providers WHERE id = ?',
       [id]
     );
 
@@ -124,7 +124,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
     await run(`UPDATE providers SET ${updateFields.join(', ')} WHERE id = ? AND user_id = ?`, updateValues);
 
-    const result = await query('SELECT id, provider_name, provider_type, base_url, enabled, created_at FROM providers WHERE id = ?', [req.params.id]);
+    const result = await query('SELECT id, provider_name, provider_type, base_url, enabled, created_at, api_key, avg_latency, last_success_at, last_failed_at FROM providers WHERE id = ?', [req.params.id]);
     res.json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
@@ -183,7 +183,7 @@ router.post('/:id/toggle', authenticateToken, async (req, res) => {
 
     await run('UPDATE providers SET enabled = ? WHERE id = ? AND user_id = ?', [newEnabled, req.params.id, req.user.id]);
 
-    const updated = await query('SELECT id, provider_name, provider_type, base_url, enabled, created_at FROM providers WHERE id = ?', [req.params.id]);
+    const updated = await query('SELECT id, provider_name, provider_type, base_url, enabled, created_at, api_key, avg_latency, last_success_at, last_failed_at FROM providers WHERE id = ?', [req.params.id]);
     res.json(updated.rows[0]);
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
