@@ -48,18 +48,39 @@ class ProviderService {
       
       console.log(`Fetching models from: ${modelsUrl}`);
       
+      // 使用 maxRedirects: 0 禁用自动重定向，手动处理
       const response = await axios.get(modelsUrl, { 
         headers, 
         timeout: 15000,
-        validateStatus: (status) => status < 500
+        maxRedirects: 0,
+        validateStatus: (status) => true // 接受所有状态码
       });
       
-      // 处理 301/302 重定向响应
-      if (response.status === 301 || response.status === 302) {
+      console.log(`Response status: ${response.status}`);
+      
+      // 处理 301/302/307/308 重定向响应
+      if ([301, 302, 307, 308].includes(response.status)) {
         const redirectUrl = response.headers.location;
+        console.log(`Got redirect to: ${redirectUrl}`);
+        
         if (redirectUrl) {
-          console.log(`Following redirect to: ${redirectUrl}`);
-          const redirectResponse = await axios.get(redirectUrl, { headers, timeout: 15000 });
+          // 解析相对 URL
+          const finalUrl = redirectUrl.startsWith('http') 
+            ? redirectUrl 
+            : new URL(redirectUrl, modelsUrl).href;
+          
+          console.log(`Following redirect to: ${finalUrl}`);
+          
+          // 跟随重定向，再次禁用自动重定向
+          const redirectResponse = await axios.get(finalUrl, { 
+            headers, 
+            timeout: 15000,
+            maxRedirects: 0,
+            validateStatus: (status) => true
+          });
+          
+          console.log(`Redirect response status: ${redirectResponse.status}`);
+          
           if (redirectResponse.data?.data) {
             return redirectResponse.data.data.map(model => ({
               id: model.id,
@@ -67,31 +88,49 @@ class ProviderService {
               owned_by: model.owned_by || 'unknown',
             }));
           }
+          
+          if (Array.isArray(redirectResponse.data)) {
+            return redirectResponse.data.map(model => ({
+              id: model.id || model.name,
+              name: model.id || model.name,
+              owned_by: model.owned_by || 'unknown',
+            }));
+          }
         }
         return [];
       }
       
-      if (response.data?.data) {
-        return response.data.data.map(model => ({
-          id: model.id,
-          name: model.id,
-          owned_by: model.owned_by || 'unknown',
-        }));
-      }
-      
-      if (Array.isArray(response.data)) {
-        return response.data.map(model => ({
-          id: model.id || model.name,
-          name: model.id || model.name,
-          owned_by: model.owned_by || 'unknown',
-        }));
+      // 处理成功响应
+      if (response.status >= 200 && response.status < 300) {
+        if (response.data?.data) {
+          return response.data.data.map(model => ({
+            id: model.id,
+            name: model.id,
+            owned_by: model.owned_by || 'unknown',
+          }));
+        }
+        
+        if (Array.isArray(response.data)) {
+          return response.data.map(model => ({
+            id: model.id || model.name,
+            name: model.id || model.name,
+            owned_by: model.owned_by || 'unknown',
+          }));
+        }
       }
 
+      // 其他错误状态
+      console.error(`Unexpected status code: ${response.status}`);
+      if (response.data) {
+        console.error('Response data:', response.data);
+      }
       return [];
+      
     } catch (error) {
       console.error(`Failed to fetch models from ${base_url}:`, error.message);
       if (error.response) {
         console.error('Response status:', error.response.status);
+        console.error('Response headers:', error.response.headers);
         console.error('Response data:', error.response.data);
       }
       throw new Error(`无法获取模型列表: ${error.message}`);
