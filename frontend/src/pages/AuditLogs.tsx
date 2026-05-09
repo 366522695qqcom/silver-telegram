@@ -35,38 +35,56 @@ export default function AuditLogs() {
     return new Date(dateString).toLocaleString('zh-CN');
   };
 
-  const getActionIcon = (action: string) => {
+  const getActionBadge = (action: string) => {
     const lowerAction = action.toLowerCase();
     if (lowerAction.includes('create') || lowerAction.includes('add')) {
-      return <Plus className="w-4 h-4 text-green-500" />;
+      return {
+        icon: <Plus className="w-3.5 h-3.5" />,
+        class: 'apple-badge-success'
+      };
     }
     if (lowerAction.includes('update') || lowerAction.includes('edit')) {
-      return <Edit className="w-4 h-4 text-blue-500" />;
+      return {
+        icon: <Edit className="w-3.5 h-3.5" />,
+        class: 'apple-btn-primary'
+      };
     }
     if (lowerAction.includes('delete') || lowerAction.includes('remove')) {
-      return <Trash2 className="w-4 h-4 text-red-500" />;
+      return {
+        icon: <Trash2 className="w-3.5 h-3.5" />,
+        class: 'apple-badge-error'
+      };
     }
     if (lowerAction.includes('login')) {
-      return <LogIn className="w-4 h-4 text-purple-500" />;
+      return {
+        icon: <LogIn className="w-3.5 h-3.5" />,
+        class: 'apple-badge-neutral'
+      };
     }
     if (lowerAction.includes('logout')) {
-      return <LogOut className="w-4 h-4 text-gray-500" />;
+      return {
+        icon: <LogOut className="w-3.5 h-3.5" />,
+        class: 'apple-badge-neutral'
+      };
     }
-    return <Settings className="w-4 h-4 text-gray-500" />;
+    return {
+      icon: <Settings className="w-3.5 h-3.5" />,
+      class: 'apple-badge-neutral'
+    };
   };
 
   const getResourceIcon = (resourceType: string) => {
     const lowerType = resourceType.toLowerCase();
     if (lowerType.includes('provider')) {
-      return <Server className="w-4 h-4 text-blue-500" />;
+      return <Server className="w-4 h-4 text-[#0071e3]" />;
     }
     if (lowerType.includes('api_key') || lowerType.includes('key')) {
-      return <Key className="w-4 h-4 text-yellow-500" />;
+      return <Key className="w-4 h-4 text-[#0071e3]" />;
     }
     if (lowerType.includes('user')) {
-      return <User className="w-4 h-4 text-green-500" />;
+      return <User className="w-4 h-4 text-[#0071e3]" />;
     }
-    return <FileText className="w-4 h-4 text-gray-500" />;
+    return <FileText className="w-4 h-4 text-[#0071e3]" />;
   };
 
   const loadMore = () => {
@@ -76,82 +94,95 @@ export default function AuditLogs() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-apple-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-apple-text">审计日志</h2>
+          <h2 className="text-2xl font-semibold text-apple-text tracking-tight">审计日志</h2>
           <p className="text-sm text-apple-text-secondary mt-1">记录所有系统操作和用户活动</p>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="apple-card">
         <div className="max-h-[calc(100vh-20rem)] overflow-y-auto">
           {isLoading && logs.length === 0 ? (
-            <div className="flex items-center justify-center py-12">
-              <RefreshCw className="w-6 h-6 animate-spin text-gray-400" />
+            <div className="flex items-center justify-center py-16">
+              <RefreshCw className="w-7 h-7 animate-spin text-apple-text-secondary" />
             </div>
           ) : logs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-apple-text-secondary">
-              <FileText className="w-12 h-12 mb-3 opacity-50" />
-              <p>暂无审计日志</p>
+            <div className="flex flex-col items-center justify-center py-16 text-apple-text-secondary">
+              <FileText className="w-14 h-14 mb-4 opacity-30" />
+              <p className="text-base">暂无审计日志</p>
             </div>
           ) : (
             <>
-              {logs.map((log) => (
-                <div
-                  key={log.id}
-                  className="px-6 py-4 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0 mt-0.5">
-                      {getActionIcon(log.action)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-1">
-                        <span className="font-medium text-apple-text">{log.action}</span>
-                        <div className="flex items-center gap-1">
-                          {getResourceIcon(log.resource_type)}
-                          <span className="text-sm text-apple-text-secondary">
-                            {log.resource_type}
-                          </span>
+              <div className="divide-y divide-[#e5e5ea]">
+                {logs.map((log, index) => {
+                  const badge = getActionBadge(log.action);
+                  return (
+                    <div
+                      key={log.id}
+                      className="px-6 py-5 hover:bg-[#f5f5f7]/50 transition-all duration-200 animate-apple-slide-up"
+                      style={{ animationDelay: `${index * 30}ms` }}
+                    >
+                      <div className="flex items-start gap-5">
+                        <div className="flex-shrink-0 mt-1">
+                          <div className={`${badge.class} px-2.5 py-2 rounded-lg inline-flex items-center justify-center`}>
+                            {badge.icon}
+                          </div>
                         </div>
-                        {log.resource_id && (
-                          <span className="text-xs text-gray-400 font-mono">
-                            #{log.resource_id.slice(0, 8)}
-                          </span>
-                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center flex-wrap gap-3 mb-2">
+                            <h3 className="font-semibold text-apple-text text-[15px]">
+                              {log.action}
+                            </h3>
+                            <div className="flex items-center gap-1.5 text-[13px] text-apple-text-secondary">
+                              {getResourceIcon(log.resource_type)}
+                              <span className="font-medium">{log.resource_type}</span>
+                            </div>
+                            {log.resource_id && (
+                              <span className="text-xs text-[#6e6e73] font-mono bg-[#f5f5f7] px-2 py-0.5 rounded-md">
+                                #{log.resource_id.slice(0, 8)}
+                              </span>
+                            )}
+                          </div>
+                          
+                          {log.details && (
+                            <p className="text-sm text-apple-text-secondary mb-3 leading-relaxed">
+                              {log.details}
+                            </p>
+                          )}
+                          
+                          <div className="flex items-center gap-5 text-[12px] text-apple-text-secondary">
+                            <div className="flex items-center gap-1.5">
+                              <Clock className="w-3.5 h-3.5" />
+                              <span>{formatDate(log.created_at)}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <Globe className="w-3.5 h-3.5" />
+                              <span>{log.ip_address || '未知'}</span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      {log.details && (
-                        <p className="text-sm text-apple-text-secondary mb-2">
-                          {log.details}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-4 text-xs text-apple-text-secondary">
-                        <div className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {formatDate(log.created_at)}
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Globe className="w-3 h-3" />
-                          {log.ip_address || 'Unknown'}
-                        </div>
-                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+                  );
+                })}
+              </div>
 
               {hasMore && (
-                <div className="px-6 py-4 border-t border-gray-100">
+                <div className="px-6 py-5 border-t border-[#e5e5ea] bg-[#fafafa]">
                   <button
                     onClick={loadMore}
                     disabled={isLoading}
-                    className="w-full py-3 bg-gray-50 text-gray-700 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="apple-btn-secondary w-full py-3 text-[14px] font-medium"
                   >
                     {isLoading ? (
-                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span className="flex items-center justify-center gap-2">
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        加载中...
+                      </span>
                     ) : (
-                      <>加载更多</>
+                      '加载更多'
                     )}
                   </button>
                 </div>

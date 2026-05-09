@@ -63,9 +63,26 @@ export default function Monitor() {
 
   const getStatusIcon = (statusCode: number) => {
     if (statusCode >= 200 && statusCode < 400) {
-      return <CheckCircle className="w-4 h-4 text-green-500" />;
+      return <CheckCircle className="w-4 h-4 text-apple-success" />;
     }
-    return <XCircle className="w-4 h-4 text-red-500" />;
+    return <XCircle className="w-4 h-4 text-apple-error" />;
+  };
+
+  const getStatusIndicator = (statusCode: number) => {
+    if (statusCode >= 200 && statusCode < 400) {
+      return (
+        <span className="relative flex h-2.5 w-2.5">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-apple-success opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-apple-success"></span>
+        </span>
+      );
+    }
+    return (
+      <span className="relative flex h-2.5 w-2.5">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-apple-error opacity-75"></span>
+        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-apple-error"></span>
+      </span>
+    );
   };
 
   const statsCards = [
@@ -74,30 +91,35 @@ export default function Monitor() {
       label: '总请求数',
       value: stats.totalRequests.toLocaleString(),
       color: 'blue',
+      badge: 'apple-badge-neutral',
     },
     {
       icon: CheckCircle,
       label: '成功请求',
       value: stats.successCount.toLocaleString(),
       color: 'green',
+      badge: 'apple-badge-success',
     },
     {
       icon: XCircle,
       label: '失败请求',
       value: stats.errorCount.toLocaleString(),
       color: 'red',
+      badge: 'apple-badge-error',
     },
     {
       icon: Clock,
       label: '平均延迟',
       value: `${stats.avgLatency}ms`,
       color: 'purple',
+      badge: 'apple-badge-neutral',
     },
     {
       icon: AlertTriangle,
       label: '活跃连接',
       value: stats.activeConnections.toString(),
       color: 'orange',
+      badge: 'apple-badge-neutral',
     },
   ];
 
@@ -105,17 +127,41 @@ export default function Monitor() {
     ? ((stats.successCount / stats.totalRequests) * 100).toFixed(1)
     : '0';
 
+  const getSuccessRateStatus = () => {
+    if (parseFloat(successRate) >= 90) return 'success';
+    if (parseFloat(successRate) >= 70) return 'warning';
+    return 'error';
+  };
+
+  const statusColors = {
+    success: {
+      bg: 'bg-apple-success/10',
+      text: 'text-apple-success',
+      bar: 'bg-apple-success',
+    },
+    warning: {
+      bg: 'bg-apple-warning/10',
+      text: 'text-apple-warning',
+      bar: 'bg-apple-warning',
+    },
+    error: {
+      bg: 'bg-apple-error/10',
+      text: 'text-apple-error',
+      bar: 'bg-apple-error',
+    },
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="min-h-screen bg-apple-gray-bg p-6 space-y-6 animate-apple-slide-up">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-apple-text">实时监控</h2>
+          <h2 className="text-2xl font-semibold text-apple-text">实时监控</h2>
           <p className="text-sm text-apple-text-secondary mt-1">实时查看 API 请求状态和性能指标</p>
         </div>
         <button
           onClick={refreshData}
           disabled={isLoading}
-          className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors disabled:opacity-50"
+          className="apple-btn-secondary flex items-center gap-2"
         >
           {isLoading ? (
             <RefreshCw className="w-4 h-4 animate-spin" />
@@ -130,37 +176,43 @@ export default function Monitor() {
         {statsCards.map((card, index) => {
           const Icon = card.icon;
           const colorMap = {
-            blue: 'bg-blue-50 text-blue-600',
-            green: 'bg-green-50 text-green-600',
-            red: 'bg-red-50 text-red-600',
-            purple: 'bg-purple-50 text-purple-600',
-            orange: 'bg-orange-50 text-orange-600',
+            blue: 'bg-apple-blue/10 text-apple-blue',
+            green: 'bg-apple-success/10 text-apple-success',
+            red: 'bg-apple-error/10 text-apple-error',
+            purple: 'bg-purple-500/10 text-purple-600',
+            orange: 'bg-apple-warning/10 text-apple-warning',
           };
           return (
             <div
               key={index}
-              className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100"
+              className="apple-card group"
             >
-              <div className={`w-10 h-10 rounded-xl ${colorMap[card.color as keyof typeof colorMap]} flex items-center justify-center mb-4`}>
-                <Icon className="w-5 h-5" />
+              <div className={`w-12 h-12 apple-lg ${colorMap[card.color as keyof typeof colorMap]} flex items-center justify-center mb-4 transition-all duration-300 group-hover:scale-105`}>
+                <Icon className="w-6 h-6" />
               </div>
               <p className="text-sm text-apple-text-secondary mb-1">{card.label}</p>
-              <p className="text-2xl font-semibold text-apple-text">{card.value}</p>
+              <p className="text-3xl font-semibold text-apple-text apple-stat-value">{card.value}</p>
             </div>
           );
         })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div className="lg:col-span-2 apple-card p-6">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-apple-text">最近请求</h3>
-            <span className="text-sm text-apple-text-secondary">{requests.length} 条记录</span>
+            <div className="flex items-center gap-3">
+              <h3 className="text-lg font-semibold text-apple-text">最近请求</h3>
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-apple-blue opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-apple-blue"></span>
+              </span>
+            </div>
+            <span className="apple-badge-neutral">{requests.length} 条记录</span>
           </div>
           
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <RefreshCw className="w-6 h-6 animate-spin text-gray-400" />
+              <RefreshCw className="w-6 h-6 animate-spin text-apple-text-secondary" />
             </div>
           ) : requests.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-apple-text-secondary">
@@ -172,33 +224,36 @@ export default function Monitor() {
               {requests.map((request) => (
                 <div
                   key={request.id}
-                  className="p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                  className="p-4 bg-apple-gray-bg apple-md hover:bg-apple-border-light transition-all duration-200"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
+                      {getStatusIndicator(request.status_code)}
                       {getStatusIcon(request.status_code)}
                       <span className="font-medium text-apple-text">{request.provider}</span>
-                      <span className="px-2 py-0.5 bg-white border border-gray-200 rounded-full text-xs text-apple-text-secondary">
+                      <span className="apple-badge-neutral">
                         {request.model}
                       </span>
                     </div>
-                    <span className={`text-sm font-mono ${
+                    <span className={`font-mono font-semibold ${
                       request.status_code >= 200 && request.status_code < 400
-                        ? 'text-green-600'
-                        : 'text-red-600'
+                        ? 'text-apple-success'
+                        : 'text-apple-error'
                     }`}>
                       {request.status_code}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm text-apple-text-secondary">
                     <span>{formatDate(request.created_at)}</span>
-                    <span>延迟: {request.latency}ms</span>
+                    <span className="text-apple-text font-medium">延迟: {request.latency}ms</span>
                     {request.prompt_tokens > 0 && (
-                      <span>Tokens: {request.prompt_tokens} + {request.completion_tokens || 0}</span>
+                      <span className="apple-badge-neutral">
+                        Tokens: {request.prompt_tokens} + {request.completion_tokens || 0}
+                      </span>
                     )}
                   </div>
                   {request.error_message && (
-                    <div className="mt-2 p-2 bg-red-50 rounded-lg text-xs text-red-600">
+                    <div className="mt-2 p-2 bg-apple-error/10 apple-sm text-xs text-apple-error">
                       {request.error_message}
                     </div>
                   )}
@@ -208,54 +263,69 @@ export default function Monitor() {
           )}
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h3 className="text-lg font-semibold text-apple-text mb-6">实时状态</h3>
+        <div className="apple-card p-6">
+          <div className="flex items-center gap-2 mb-6">
+            <h3 className="text-lg font-semibold text-apple-text">实时状态</h3>
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-apple-success opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-apple-success"></span>
+            </span>
+          </div>
           
           <div className="space-y-6">
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-apple-text-secondary">成功率</span>
-                <span className="font-semibold text-apple-text">{successRate}%</span>
+                <span className={`font-semibold ${statusColors[getSuccessRateStatus() as keyof typeof statusColors].text}`}>
+                  {successRate}%
+                </span>
               </div>
-              <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-2 bg-apple-border-light apple-md overflow-hidden">
                 <div 
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    parseFloat(successRate) >= 90 ? 'bg-green-500' :
-                    parseFloat(successRate) >= 70 ? 'bg-yellow-500' : 'bg-red-500'
+                  className={`h-full apple-md transition-all duration-700 ease-out ${
+                    statusColors[getSuccessRateStatus() as keyof typeof statusColors].bar
                   }`}
                   style={{ width: `${successRate}%` }}
                 />
               </div>
             </div>
 
-            <div className="p-4 bg-gray-50 rounded-xl">
+            <div className="p-4 bg-apple-gray-bg apple-lg">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-apple-text-secondary">今日请求</span>
-                <span className="font-semibold text-apple-text">{stats.totalRequests}</span>
+                <span className="font-semibold text-apple-text apple-stat-value">{stats.totalRequests}</span>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="text-center p-3 bg-green-50 rounded-lg">
-                  <p className="text-2xl font-semibold text-green-600">{stats.successCount}</p>
-                  <p className="text-xs text-green-600">成功</p>
+                <div className={`text-center p-3 apple-md ${statusColors.success.bg}`}>
+                  <p className={`text-2xl font-semibold ${statusColors.success.text} apple-stat-value`}>
+                    {stats.successCount}
+                  </p>
+                  <p className={`text-xs ${statusColors.success.text} mt-1`}>成功</p>
                 </div>
-                <div className="text-center p-3 bg-red-50 rounded-lg">
-                  <p className="text-2xl font-semibold text-red-600">{stats.errorCount}</p>
-                  <p className="text-xs text-red-600">失败</p>
+                <div className={`text-center p-3 apple-md ${statusColors.error.bg}`}>
+                  <p className={`text-2xl font-semibold ${statusColors.error.text} apple-stat-value`}>
+                    {stats.errorCount}
+                  </p>
+                  <p className={`text-xs ${statusColors.error.text} mt-1`}>失败</p>
                 </div>
               </div>
             </div>
 
-            <div className="p-4 bg-blue-50 rounded-xl">
+            <div className="p-4 bg-apple-blue/10 apple-lg">
               <div className="flex items-center justify-between">
-                <span className="text-blue-600">活跃连接数</span>
-                <span className="text-2xl font-semibold text-blue-600">{stats.activeConnections}</span>
+                <span className="text-apple-blue">活跃连接数</span>
+                <span className="text-2xl font-semibold text-apple-blue apple-stat-value">
+                  {stats.activeConnections}
+                </span>
               </div>
             </div>
 
-            <div className="p-4 bg-purple-50 rounded-xl">
+            <div className="p-4 bg-purple-500/10 apple-lg">
               <div className="flex items-center justify-between">
                 <span className="text-purple-600">平均延迟</span>
-                <span className="text-2xl font-semibold text-purple-600">{stats.avgLatency}ms</span>
+                <span className="text-2xl font-semibold text-purple-600 apple-stat-value">
+                  {stats.avgLatency}ms
+                </span>
               </div>
             </div>
           </div>

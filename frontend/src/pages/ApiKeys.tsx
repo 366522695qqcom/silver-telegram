@@ -71,7 +71,7 @@ export default function ApiKeys() {
         setSelectedKey(updated);
       }
     } catch (error) {
-      console.error('Failed to toggle API key:', error);
+      console.error('Failed to toggle API key status:', error);
     }
   };
 
@@ -118,39 +118,39 @@ export default function ApiKeys() {
   const apiBaseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
 
   return (
-    <div className="space-y-6">
-      <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6">
-        <h3 className="text-lg font-semibold text-blue-900 mb-4">如何使用 API 密钥</h3>
-        <div className="space-y-3 text-sm text-blue-800">
+    <div className="bg-apple-gray-bg min-h-screen p-6 space-y-6 animate-apple-fade-in">
+      <div className="apple-card apple-lg p-6 animate-apple-slide-up">
+        <h3 className="text-lg font-semibold text-apple-text mb-4">如何使用 API 密钥</h3>
+        <div className="space-y-3 text-sm text-apple-text-secondary">
           <div className="flex items-start gap-3">
-            <span className="bg-blue-200 text-blue-900 px-2 py-1 rounded-lg font-semibold text-xs">1</span>
+            <span className="bg-apple-blue/10 text-apple-blue px-2 py-1 rounded-lg font-semibold text-xs">1</span>
             <div>
-              <p className="font-medium">调用地址</p>
-              <code className="bg-blue-100 px-2 py-1 rounded text-xs mt-1 inline-block">
+              <p className="font-medium text-apple-text">调用地址</p>
+              <code className="font-mono bg-gray-100 text-apple-text px-2 py-1 rounded text-xs mt-1 inline-block">
                 {apiBaseUrl}/api/v1/chat/completions
               </code>
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <span className="bg-blue-200 text-blue-900 px-2 py-1 rounded-lg font-semibold text-xs">2</span>
+            <span className="bg-apple-blue/10 text-apple-blue px-2 py-1 rounded-lg font-semibold text-xs">2</span>
             <div>
-              <p className="font-medium">认证方式</p>
-              <p className="mt-1">在请求头中添加：<code className="bg-blue-100 px-2 py-1 rounded text-xs">X-API-Key: your_api_key</code></p>
+              <p className="font-medium text-apple-text">认证方式</p>
+              <p className="mt-1">在请求头中添加：<code className="font-mono bg-gray-100 text-apple-text px-2 py-1 rounded text-xs">X-API-Key: your_api_key</code></p>
             </div>
           </div>
           <div className="flex items-start gap-3">
-            <span className="bg-blue-200 text-blue-900 px-2 py-1 rounded-lg font-semibold text-xs">3</span>
+            <span className="bg-apple-blue/10 text-apple-blue px-2 py-1 rounded-lg font-semibold text-xs">3</span>
             <div>
-              <p className="font-medium">请求格式</p>
+              <p className="font-medium text-apple-text">请求格式</p>
               <p className="mt-1">支持 OpenAI 兼容格式，provider_id 可选</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between animate-apple-slide-up">
         <div>
-          <h2 className="text-lg font-semibold text-apple-text">API 密钥管理</h2>
+          <h2 className="text-xl font-semibold text-apple-text">API 密钥管理</h2>
           <p className="text-sm text-apple-text-secondary mt-1">管理您的 API 密钥，用于访问 AI API Gateway</p>
         </div>
         <button
@@ -159,7 +159,7 @@ export default function ApiKeys() {
             setSelectedKey(null);
             setFormData({ name: '' });
           }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-apple-blue text-white rounded-xl hover:bg-apple-blue-hover transition-colors"
+          className="apple-btn-primary flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
           创建密钥
@@ -167,7 +167,7 @@ export default function ApiKeys() {
       </div>
 
       {isCreating ? (
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+        <div className="apple-card apple-lg p-6 animate-apple-slide-up">
           <h3 className="text-lg font-semibold text-apple-text mb-6">创建 API 密钥</h3>
           <div className="space-y-4 max-w-md">
             <div>
@@ -176,20 +176,20 @@ export default function ApiKeys() {
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-apple-blue/20 focus:border-apple-blue"
+                className="apple-input"
                 placeholder="如: 我的应用"
               />
             </div>
             <div className="flex gap-3 pt-4">
               <button
                 onClick={() => setIsCreating(false)}
-                className="flex-1 px-4 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                className="apple-btn-secondary flex-1"
               >
                 取消
               </button>
               <button
                 onClick={handleCreate}
-                className="flex-1 px-4 py-3 bg-apple-blue text-white rounded-xl hover:bg-apple-blue-hover transition-colors"
+                className="apple-btn-primary flex-1"
               >
                 创建
               </button>
@@ -197,10 +197,10 @@ export default function ApiKeys() {
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="apple-card apple-lg overflow-hidden animate-apple-slide-up">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-100">
+              <thead className="bg-gray-50/80 border-b border-apple-border-light">
                 <tr>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-apple-text-secondary">名称</th>
                   <th className="px-6 py-4 text-left text-sm font-semibold text-apple-text-secondary">密钥</th>
@@ -210,21 +210,27 @@ export default function ApiKeys() {
                   <th className="px-6 py-4 text-left text-sm font-semibold text-apple-text-secondary">操作</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-apple-border-light">
                 {apiKeys.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-apple-text-secondary">
-                      <p>暂无 API 密钥</p>
-                      <p className="text-sm mt-1">点击上方按钮创建</p>
+                    <td colSpan={6} className="px-6 py-16 text-center text-apple-text-secondary">
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+                          <Key className="w-6 h-6 text-gray-400" />
+                        </div>
+                        <p className="font-medium text-apple-text">暂无 API 密钥</p>
+                        <p className="text-sm">点击上方按钮创建您的第一个密钥</p>
+                      </div>
                     </td>
                   </tr>
                 ) : (
-                  apiKeys.map((apiKey) => (
+                  apiKeys.map((apiKey, index) => (
                     <tr 
                       key={apiKey.id}
-                      className={`hover:bg-gray-50 transition-colors ${
-                        selectedKey?.id === apiKey.id ? 'bg-blue-50' : ''
+                      className={`hover:bg-gray-50/50 transition-colors animate-apple-fade-in ${
+                        selectedKey?.id === apiKey.id ? 'bg-apple-blue/5' : ''
                       }`}
+                      style={{ animationDelay: `${index * 50}ms` }}
                     >
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -233,7 +239,7 @@ export default function ApiKeys() {
                               type="text"
                               value={formData.name}
                               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                              className="px-3 py-1 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-apple-blue/20 focus:border-apple-blue"
+                              className="apple-input py-1 px-3"
                             />
                           ) : (
                             <span className="font-medium text-apple-text">{apiKey.name || '未命名'}</span>
@@ -242,7 +248,7 @@ export default function ApiKeys() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-sm text-apple-text">
+                          <span className="font-mono text-sm text-apple-text bg-gray-100 px-2 py-1 rounded apple-sm">
                             {showKey && selectedKey?.id === apiKey.id
                               ? apiKey.key
                               : `${apiKey.key.slice(0, 8)}...${apiKey.key.slice(-4)}`}
@@ -256,7 +262,7 @@ export default function ApiKeys() {
                                 setShowKey(true);
                               }
                             }}
-                            className="p-1 text-gray-400 hover:text-gray-600"
+                            className="p-1.5 text-apple-text-secondary hover:text-apple-text hover:bg-gray-100 rounded-lg transition-colors"
                           >
                             {showKey && selectedKey?.id === apiKey.id ? (
                               <EyeOff className="w-4 h-4" />
@@ -266,7 +272,7 @@ export default function ApiKeys() {
                           </button>
                           <button
                             onClick={() => handleCopy(apiKey.key, apiKey.id)}
-                            className="p-1 text-gray-400 hover:text-gray-600"
+                            className="p-1.5 text-apple-text-secondary hover:text-apple-text hover:bg-gray-100 rounded-lg transition-colors"
                           >
                             {copiedId === apiKey.id ? (
                               <CheckCircle className="w-4 h-4 text-green-500" />
@@ -282,15 +288,15 @@ export default function ApiKeys() {
                           className="flex items-center gap-2"
                         >
                           {apiKey.enabled ? (
-                            <>
-                              <span className="w-2 h-2 bg-green-500 rounded-full" />
-                              <span className="text-sm text-green-600 font-medium">启用</span>
-                            </>
+                            <span className="apple-badge-success flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 bg-current rounded-full" />
+                              启用
+                            </span>
                           ) : (
-                            <>
-                              <span className="w-2 h-2 bg-gray-400 rounded-full" />
-                              <span className="text-sm text-gray-500 font-medium">禁用</span>
-                            </>
+                            <span className="apple-badge-neutral flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 bg-current rounded-full" />
+                              禁用
+                            </span>
                           )}
                         </button>
                       </td>
@@ -305,12 +311,13 @@ export default function ApiKeys() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
                           {isEditing && selectedKey?.id === apiKey.id ? (
                             <>
                               <button
                                 onClick={handleUpdate}
                                 className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                title="保存"
                               >
                                 <CheckCircle className="w-4 h-4" />
                               </button>
@@ -319,7 +326,8 @@ export default function ApiKeys() {
                                   setIsEditing(false);
                                   setFormData({ name: selectedKey.name || '' });
                                 }}
-                                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                className="p-2 text-apple-text-secondary hover:bg-gray-100 rounded-lg transition-colors"
+                                title="取消"
                               >
                                 <Edit className="w-4 h-4" />
                               </button>
@@ -332,19 +340,22 @@ export default function ApiKeys() {
                                   setIsEditing(true);
                                   setFormData({ name: apiKey.name || '' });
                                 }}
-                                className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                className="p-2 text-apple-text-secondary hover:text-apple-text hover:bg-gray-100 rounded-lg transition-colors"
+                                title="编辑"
                               >
                                 <Edit className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => handleRegenerate(apiKey)}
-                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                className="p-2 text-apple-blue hover:bg-apple-blue/10 rounded-lg transition-colors"
+                                title="重新生成"
                               >
                                 <RefreshCw className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => handleDelete(apiKey.id)}
                                 className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                title="删除"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -361,5 +372,13 @@ export default function ApiKeys() {
         </div>
       )}
     </div>
+  );
+}
+
+function Key({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
+    </svg>
   );
 }
