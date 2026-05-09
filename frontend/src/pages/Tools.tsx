@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Edit, Zap, Bot, Link } from 'lucide-react';
+import { Plus, Trash2, Edit, Play, Eye, MoreHorizontal } from 'lucide-react';
 import { toolsAPI } from '@/services/api';
 
 interface Tool {
@@ -18,11 +18,15 @@ export default function Tools() {
   const [tools, setTools] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showExecModal, setShowExecModal] = useState(false);
   const [editingTool, setEditingTool] = useState<Tool | null>(null);
+  const [executingTool, setExecutingTool] = useState<Tool | null>(null);
+  const [execParams, setExecParams] = useState('{}');
+  const [execResult, setExecResult] = useState<any>(null);
   const [form, setForm] = useState({
     name: '',
     description: '',
-    type: 'custom',
+    type: 'builtin',
     schema: '{"type": "object", "properties": {}}',
     endpoint: '',
     auth_config: '',
@@ -84,6 +88,25 @@ export default function Tools() {
     setShowModal(true);
   };
 
+  const handleExecute = (tool: Tool) => {
+    setExecutingTool(tool);
+    setExecParams('{}');
+    setExecResult(null);
+    setShowExecModal(true);
+  };
+
+  const doExecute = async () => {
+    if (!executingTool) return;
+    try {
+      const params = JSON.parse(execParams);
+      const res = await toolsAPI.execute(executingTool.id, params);
+      setExecResult(res);
+    } catch (error) {
+      console.error('Failed to execute tool:', error);
+      alert('执行失败');
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm('确定要删除此工具吗？')) return;
     try {
@@ -98,7 +121,7 @@ export default function Tools() {
     setForm({
       name: '',
       description: '',
-      type: 'custom',
+      type: 'builtin',
       schema: '{"type": "object", "properties": {}}',
       endpoint: '',
       auth_config: '',
@@ -107,31 +130,19 @@ export default function Tools() {
   };
 
   return (
-    <div className="p-6 animate-apple-slide-up">
-      <div className="mb-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-semibold text-apple-text">工具注册表</h1>
-            <p className="text-apple-text-secondary mt-1">注册可在对话中自动调用的工具</p>
-          </div>
-          <button
-            onClick={() => setShowModal(true)}
-            className="apple-btn-primary flex items-center gap-2"
-          >
-            <Plus size={20} />
-            注册工具
-          </button>
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-2xl font-semibold text-apple-text">工具管理</h1>
+          <p className="text-apple-text-secondary mt-1">管理函数调用工具</p>
         </div>
-
-        <div className="mt-4 apple-card rounded-apple-md p-4 bg-blue-50 border border-blue-200">
-          <div className="flex items-start gap-3">
-            <Zap className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-            <div className="text-sm text-blue-800">
-              <p className="font-semibold mb-1">自动 Tool Calling 工作原理</p>
-              <p>客户端发送对话请求时携带 <code className="bg-blue-100 px-1.5 py-0.5 rounded text-xs font-mono">tools</code> 参数，网关会自动将请求转发给大模型。当模型决定调用工具时，网关会自动匹配注册表中的工具并执行，然后将结果喂回模型继续生成，直到模型给出最终回复。整个过程完全自动，无需手动干预。</p>
-            </div>
-          </div>
-        </div>
+        <button
+          onClick={() => setShowModal(true)}
+          className="apple-btn-primary flex items-center gap-2"
+        >
+          <Plus size={20} />
+          新建工具
+        </button>
       </div>
 
       {loading ? (
@@ -139,78 +150,59 @@ export default function Tools() {
           <div className="w-8 h-8 border-2 border-apple-blue border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="apple-card overflow-hidden">
           {tools.length === 0 ? (
-            <div className="apple-card rounded-apple-md p-12 text-center">
-              <div className="w-16 h-16 rounded-full bg-apple-gray-bg flex items-center justify-center mx-auto mb-4">
-                <Bot className="w-8 h-8 text-apple-text-secondary opacity-50" />
-              </div>
-              <p className="text-lg font-medium text-apple-text mb-2">暂无注册工具</p>
-              <p className="text-sm text-apple-text-secondary mb-4">注册工具后，当模型在对话中需要调用工具时，网关会自动执行</p>
+            <div className="text-center py-12">
+              <div className="text-4xl mb-4">🔧</div>
+              <p className="text-apple-text-secondary">暂无工具</p>
               <button
                 onClick={() => setShowModal(true)}
-                className="apple-btn-primary"
+                className="apple-btn-primary mt-4"
               >
-                注册第一个工具
+                创建第一个工具
               </button>
             </div>
           ) : (
-            tools.map(tool => (
-              <div key={tool.id} className="apple-card rounded-apple-md p-5 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                        tool.type === 'builtin' ? 'bg-purple-100 text-purple-600' : 'bg-orange-100 text-orange-600'
-                      }`}>
-                        {tool.type === 'builtin' ? <Zap className="w-4 h-4" /> : <Link className="w-4 h-4" />}
-                      </div>
-                      <h3 className="font-semibold text-apple-text text-lg">{tool.name}</h3>
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        tool.enabled 
-                          ? 'bg-green-100 text-green-700' 
-                          : 'bg-gray-100 text-gray-500'
-                      }`}>
+            <div className="divide-y divide-apple-border">
+              {tools.map(tool => (
+                <div key={tool.id} className="p-4 flex items-center justify-between hover:bg-apple-gray-bg/50 transition-colors">
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <h3 className="font-medium text-apple-text">{tool.name}</h3>
+                      <span className={`apple-badge ${tool.enabled ? 'apple-badge-success' : 'apple-badge-warning'}`}>
                         {tool.enabled ? '已启用' : '已禁用'}
                       </span>
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-600">
-                        {tool.type === 'builtin' ? '内置' : 'API'}
+                      <span className="apple-badge apple-badge-info">
+                        {tool.type === 'builtin' ? '内置' : '自定义'}
                       </span>
                     </div>
                     {tool.description && (
-                      <p className="text-sm text-apple-text-secondary mb-2">{tool.description}</p>
+                      <p className="mt-1 text-sm text-apple-text-secondary">{tool.description}</p>
                     )}
-                    {tool.type === 'custom' && tool.endpoint && (
-                      <p className="text-xs text-apple-text-secondary font-mono bg-apple-gray-bg inline-block px-2 py-1 rounded">
-                        {tool.endpoint}
-                      </p>
-                    )}
-                    <div className="mt-2">
-                      <p className="text-xs text-apple-text-secondary mb-1">参数 Schema:</p>
-                      <pre className="text-xs font-mono text-apple-text-secondary bg-apple-gray-bg p-2 rounded max-h-24 overflow-y-auto">
-                        {JSON.stringify(tool.schema, null, 2)}
-                      </pre>
-                    </div>
                   </div>
-                  <div className="flex items-center gap-1 ml-4">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleExecute(tool)}
+                      className="p-2 hover:bg-apple-gray-bg rounded-lg transition-colors"
+                    >
+                      <Play size={16} />
+                    </button>
                     <button
                       onClick={() => handleEdit(tool)}
                       className="p-2 hover:bg-apple-gray-bg rounded-lg transition-colors"
-                      title="编辑"
                     >
-                      <Edit size={16} className="text-apple-text-secondary" />
+                      <Edit size={16} />
                     </button>
                     <button
                       onClick={() => handleDelete(tool.id)}
                       className="p-2 hover:bg-red-50 text-red-500 rounded-lg transition-colors"
-                      title="删除"
                     >
                       <Trash2 size={16} />
                     </button>
                   </div>
                 </div>
-              </div>
-            ))
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -218,110 +210,136 @@ export default function Tools() {
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="apple-card w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <h2 className="text-xl font-semibold mb-1">
-                {editingTool ? '编辑工具' : '注册工具'}
-              </h2>
-              <p className="text-sm text-apple-text-secondary mb-4">
-                注册的工具会在对话中自动被模型调用。模型根据用户意图决定何时调用哪个工具。
-              </p>
-              <form onSubmit={handleSubmit} className="space-y-4">
+            <h2 className="text-xl font-semibold mb-4">
+              {editingTool ? '编辑工具' : '新建工具'}
+            </h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-apple-text mb-1">名称</label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={e => setForm({ ...form, name: e.target.value })}
+                  className="apple-input"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-apple-text mb-1">描述</label>
+                <textarea
+                  value={form.description}
+                  onChange={e => setForm({ ...form, description: e.target.value })}
+                  className="apple-input"
+                  rows={2}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-apple-text mb-1">类型</label>
+                <select
+                  value={form.type}
+                  onChange={e => setForm({ ...form, type: e.target.value })}
+                  className="apple-input"
+                >
+                  <option value="builtin">内置</option>
+                  <option value="custom">自定义</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-apple-text mb-1">Schema (JSON)</label>
+                <textarea
+                  value={form.schema}
+                  onChange={e => setForm({ ...form, schema: e.target.value })}
+                  className="apple-input font-mono text-sm"
+                  rows={8}
+                  required
+                />
+              </div>
+              {form.type === 'custom' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-apple-text mb-1">API 端点</label>
+                    <input
+                      type="text"
+                      value={form.endpoint}
+                      onChange={e => setForm({ ...form, endpoint: e.target.value })}
+                      className="apple-input"
+                      placeholder="https://..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-apple-text mb-1">认证配置 (JSON, 可选)</label>
+                    <textarea
+                      value={form.auth_config}
+                      onChange={e => setForm({ ...form, auth_config: e.target.value })}
+                      className="apple-input font-mono text-sm"
+                      rows={4}
+                    />
+                  </div>
+                </>
+              )}
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="enabled"
+                  checked={form.enabled}
+                  onChange={e => setForm({ ...form, enabled: e.target.checked })}
+                />
+                <label htmlFor="enabled" className="text-apple-text">启用</label>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModal(false);
+                    setEditingTool(null);
+                    resetForm();
+                  }}
+                  className="apple-btn-secondary flex-1"
+                >
+                  取消
+                </button>
+                <button type="submit" className="apple-btn-primary flex-1">
+                  保存
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showExecModal && executingTool && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="apple-card w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">执行: {executingTool.name}</h2>
+              <button
+                onClick={() => setShowExecModal(false)}
+                className="p-2 hover:bg-apple-gray-bg rounded-lg"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-apple-text mb-1">参数 (JSON)</label>
+                <textarea
+                  value={execParams}
+                  onChange={e => setExecParams(e.target.value)}
+                  className="apple-input font-mono text-sm"
+                  rows={6}
+                />
+              </div>
+              <button onClick={doExecute} className="apple-btn-primary w-full">
+                执行
+              </button>
+              {execResult && (
                 <div>
-                  <label className="block text-sm font-medium text-apple-text mb-1">工具名称</label>
-                  <input
-                    type="text"
-                    value={form.name}
-                    onChange={e => setForm({ ...form, name: e.target.value })}
-                    className="apple-input"
-                    placeholder="如: get_weather"
-                    required
-                  />
-                  <p className="text-xs text-apple-text-secondary mt-1">模型会根据此名称匹配工具调用</p>
+                  <label className="block text-sm font-medium text-apple-text mb-1">结果</label>
+                  <pre className="apple-input font-mono text-sm overflow-x-auto whitespace-pre-wrap">
+                    {JSON.stringify(execResult, null, 2)}
+                  </pre>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-apple-text mb-1">描述</label>
-                  <textarea
-                    value={form.description}
-                    onChange={e => setForm({ ...form, description: e.target.value })}
-                    className="apple-input"
-                    rows={2}
-                    placeholder="描述工具的功能，帮助模型判断何时调用"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-apple-text mb-1">类型</label>
-                  <select
-                    value={form.type}
-                    onChange={e => setForm({ ...form, type: e.target.value })}
-                    className="apple-input"
-                  >
-                    <option value="custom">API 工具（调用外部接口）</option>
-                    <option value="builtin">内置工具</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-apple-text mb-1">参数 Schema (JSON)</label>
-                  <textarea
-                    value={form.schema}
-                    onChange={e => setForm({ ...form, schema: e.target.value })}
-                    className="apple-input font-mono text-sm"
-                    rows={8}
-                    placeholder='{"type": "object", "properties": {"location": {"type": "string", "description": "城市名"}}}'
-                    required
-                  />
-                  <p className="text-xs text-apple-text-secondary mt-1">遵循 JSON Schema 格式，模型会根据此生成参数</p>
-                </div>
-                {form.type === 'custom' && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-apple-text mb-1">API 端点</label>
-                      <input
-                        type="text"
-                        value={form.endpoint}
-                        onChange={e => setForm({ ...form, endpoint: e.target.value })}
-                        className="apple-input"
-                        placeholder="https://api.example.com/weather"
-                      />
-                      <p className="text-xs text-apple-text-secondary mt-1">模型调用此工具时，网关会 POST 到此地址</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-apple-text mb-1">认证配置 (JSON, 可选)</label>
-                      <textarea
-                        value={form.auth_config}
-                        onChange={e => setForm({ ...form, auth_config: e.target.value })}
-                        className="apple-input font-mono text-sm"
-                        rows={4}
-                        placeholder='{"headers": {"X-API-Key": "xxx"}}'
-                      />
-                    </div>
-                  </>
-                )}
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="enabled"
-                    checked={form.enabled}
-                    onChange={e => setForm({ ...form, enabled: e.target.checked })}
-                  />
-                  <label htmlFor="enabled" className="text-apple-text">启用（只有启用的工具才会被自动调用）</label>
-                </div>
-                <div className="flex gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowModal(false);
-                      setEditingTool(null);
-                      resetForm();
-                    }}
-                    className="apple-btn-secondary flex-1 py-3"
-                  >
-                    取消
-                  </button>
-                  <button type="submit" className="apple-btn-primary flex-1 py-3">
-                    {editingTool ? '保存' : '注册'}
-                  </button>
-                </div>
-              </form>
+              )}
             </div>
           </div>
         </div>
