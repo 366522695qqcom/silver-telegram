@@ -15,7 +15,7 @@ class ProviderService {
         return { success: true, message: 'Anthropic API key validated (no test endpoint)' };
       }
 
-      const response = await axios.get(testEndpoint, { headers, timeout: 10000 });
+      const response = await axios.get(testEndpoint, { headers, timeout: 10000, maxRedirects: 0 });
       return { success: true, status: response.status, message: 'Connection successful' };
     } catch (error) {
       return { 
@@ -33,7 +33,7 @@ class ProviderService {
       const headers = this.buildHeaders(provider_type, api_key);
       const modelsUrl = base_url.replace(/\/$/, '') + '/models';
       
-      const response = await axios.get(modelsUrl, { headers, timeout: 15000 });
+      const response = await axios.get(modelsUrl, { headers, timeout: 15000, maxRedirects: 0 });
       
       if (response.data?.data) {
         return response.data.data.map(model => ({
