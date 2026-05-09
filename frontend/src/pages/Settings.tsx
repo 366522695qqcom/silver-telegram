@@ -73,16 +73,27 @@ export default function Settings() {
     }
   };
 
-  const handleSelectProvider = (provider: Provider) => {
+  const handleSelectProvider = async (provider: Provider) => {
     setSelectedProvider(provider);
     setIsEditing(false);
     setTestResult(null);
     setFormData({
       provider_name: provider.provider_name,
       provider_type: provider.provider_type,
-      api_key: provider.api_key,
+      api_key: '',
       base_url: provider.base_url,
     });
+    try {
+      const fullProvider = await providersAPI.getById(provider.id);
+      setFormData({
+        provider_name: fullProvider.provider_name,
+        provider_type: fullProvider.provider_type,
+        api_key: fullProvider.api_key,
+        base_url: fullProvider.base_url,
+      });
+    } catch (error) {
+      console.error('Failed to fetch provider details:', error);
+    }
   };
 
   const handleCreate = async () => {
@@ -156,9 +167,9 @@ export default function Settings() {
   };
 
   return (
-    <div className="min-h-screen apple-gray-bg p-6 animate-apple-slide-up">
-      <div className="h-[calc(100vh-8rem)] flex gap-4 max-w-7xl mx-auto">
-        <div className="w-80 flex-shrink-0 apple-card rounded-apple-lg flex flex-col">
+    <div className="min-h-[calc(100vh-6rem)] bg-apple-gray-bg animate-apple-slide-up">
+      <div className="flex gap-4 max-w-7xl mx-auto py-6 px-6">
+        <div className="w-80 flex-shrink-0 bg-white rounded-apple-lg shadow-apple-card flex flex-col" style={{ maxHeight: 'calc(100vh - 8rem)' }}>
           <div className="p-5 border-b apple-border-light flex items-center justify-between">
             <h2 className="font-semibold text-apple-text text-lg">提供商列表</h2>
             <button
@@ -232,7 +243,7 @@ export default function Settings() {
           </div>
         </div>
 
-        <div className="flex-1 flex flex-col apple-card-flat rounded-apple-lg overflow-hidden">
+        <div className="flex-1 flex flex-col bg-white rounded-apple-lg shadow-apple-card overflow-hidden" style={{ maxHeight: 'calc(100vh - 8rem)' }}>
           {isCreating ? (
             <div className="flex-1 p-8 overflow-y-auto animate-apple-slide-up">
               <div className="mb-8">
@@ -410,7 +421,7 @@ export default function Settings() {
                           </div>
                           <div>
                             <p className="text-sm text-apple-text-secondary">启用状态</p>
-                            <p className="font-semibold text-apple-text">{(selectedProvider as any).enabled ? '已启用' : '已禁用'}</p>
+                            <p className="font-semibold text-apple-text">{selectedProvider.enabled ? '已启用' : '已禁用'}</p>
                           </div>
                         </div>
                         <button
