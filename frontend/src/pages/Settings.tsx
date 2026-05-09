@@ -46,15 +46,20 @@ export default function Settings() {
       }
     };
     fetchProviders();
-  }, [setProviders]);
+  }, []);
 
+  const [lastFetchProviderId, setLastFetchProviderId] = useState<string | null>(null);
+  
   useEffect(() => {
-    if (selectedProvider && selectedProvider.id) {
+    if (selectedProvider && selectedProvider.id && selectedProvider.id !== lastFetchProviderId) {
+      setLastFetchProviderId(selectedProvider.id);
       fetchModels(selectedProvider.id);
     }
   }, [selectedProvider?.id]);
 
   const fetchModels = async (providerId: string) => {
+    if (isRefreshingModels) return;
+    
     setIsRefreshingModels(true);
     try {
       const data = await providersAPI.getModels(providerId);
