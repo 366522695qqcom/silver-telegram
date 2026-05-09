@@ -1,5 +1,5 @@
 import Cookies from 'js-cookie';
-import type { User, Provider, ApiKey, Request, AuditLog, Model, ModelListResponse, LoginData, RegisterData, CreateProviderData, CreateApiKeyData, TestConnectionResult } from '@/types';
+import type { User, Provider, ApiKey, Request, AuditLog, ModelListResponse, LoginData, RegisterData, CreateProviderData, CreateApiKeyData, TestConnectionResult } from '@/types';
 
 const request = async <T>(url: string, options: RequestInit = {}): Promise<T> => {
   const headers: HeadersInit = {
