@@ -28,6 +28,7 @@ export default function Settings() {
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [isRefreshingModels, setIsRefreshingModels] = useState(false);
+  const [modelsError, setModelsError] = useState<string | null>(null);
   
   const [formData, setFormData] = useState<CreateProviderData>({
     provider_name: '',
@@ -61,6 +62,7 @@ export default function Settings() {
     if (isRefreshingModels) return;
     
     setIsRefreshingModels(true);
+    setModelsError(null);
     try {
       const data = await providersAPI.getModels(providerId);
       if (data && data.models) {
@@ -73,6 +75,7 @@ export default function Settings() {
     } catch (error) {
       console.error('Failed to fetch models:', error);
       setModels([]);
+      setModelsError((error as Error).message || '获取模型列表失败');
     } finally {
       setIsRefreshingModels(false);
     }
@@ -83,6 +86,8 @@ export default function Settings() {
     setSelectedProvider(provider);
     setIsEditing(false);
     setTestResult(null);
+    setModelsError(null);
+    setModels([]);
     setFormData({
       provider_name: provider.provider_name,
       provider_type: provider.provider_type,
@@ -146,6 +151,7 @@ export default function Settings() {
   const handleTestConnection = async () => {
     if (!selectedProvider) return;
     setIsTesting(true);
+    setModelsError(null);
     try {
       const result = await providersAPI.testConnection(selectedProvider.id);
       setTestResult(result);
@@ -455,8 +461,8 @@ export default function Settings() {
 
                 {testResult && (
                   <div className={`apple-card rounded-apple-md p-5 ${
-                    testResult.success 
-                      ? 'apple-badge-success border-2 border-green-200' 
+                    testResult.success
+                      ? 'apple-badge-success border-2 border-green-200'
                       : 'apple-badge-error border-2 border-red-200'
                   }`}>
                     <div className="flex items-center gap-3">
@@ -481,7 +487,19 @@ export default function Settings() {
                   </div>
                 )}
 
-                {models.length > 0 && (
+                {modelsError && (
+                  <div className="apple-card rounded-apple-md p-5 apple-badge-error border-2 border-red-200">
+                    <div className="flex items-center gap-3">
+                      <XCircle className="w-6 h-6" />
+                      <div>
+                        <p className="font-semibold text-red-800">获取模型失败</p>
+                        <p className="text-sm mt-1 text-red-600">{modelsError}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {models.length > 0 ? (
                   <div className="apple-card rounded-apple-md p-5">
                     <div className="flex items-center gap-3 mb-5">
                       <div className="w-10 h-10 rounded-apple-sm apple-blue/10 flex items-center justify-center">
@@ -502,6 +520,10 @@ export default function Settings() {
                         </span>
                       ))}
                     </div>
+                  </div>
+                ) : !isRefreshingModels && !modelsError && (
+                  <div className="apple-card rounded-apple-md p-5 text-center">
+                    <p className="text-apple-text-secondary text-sm">暂无模型数据，点击"获取模型列表"按钮获取</p>
                   </div>
                 )}
               </div>

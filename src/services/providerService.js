@@ -15,8 +15,30 @@ class ProviderService {
         return { success: true, message: 'Anthropic API key validated (no test endpoint)' };
       }
 
-      const response = await axios.get(testEndpoint, { headers, timeout: 10000, maxRedirects: 5 });
-      return { success: true, status: response.status, message: 'Connection successful' };
+      const response = await axios.get(testEndpoint, { 
+        headers, 
+        timeout: 10000, 
+        maxRedirects: 0,
+        validateStatus: (status) => true 
+      });
+
+      if ([301, 302, 307, 308].includes(response.status)) {
+        return { 
+          success: false, 
+          status: response.status,
+          message: `目标返回 ${response.status} 重定向，请检查 Base URL 是否正确（Location: ${response.headers.location || 'unknown'}）` 
+        };
+      }
+
+      if (response.status >= 200 && response.status < 300) {
+        return { success: true, status: response.status, message: 'Connection successful' };
+      }
+
+      return { 
+        success: false, 
+        status: response.status,
+        message: response.data?.error?.message || `HTTP ${response.status}` 
+      };
     } catch (error) {
       return { 
         success: false, 
@@ -61,43 +83,7 @@ class ProviderService {
       // 处理 301/302/307/308 重定向响应
       if ([301, 302, 307, 308].includes(response.status)) {
         const redirectUrl = response.headers.location;
-        console.log(`Got redirect to: ${redirectUrl}`);
-        
-        if (redirectUrl) {
-          // 解析相对 URL
-          const finalUrl = redirectUrl.startsWith('http') 
-            ? redirectUrl 
-            : new URL(redirectUrl, modelsUrl).href;
-          
-          console.log(`Following redirect to: ${finalUrl}`);
-          
-          // 跟随重定向，再次禁用自动重定向
-          const redirectResponse = await axios.get(finalUrl, { 
-            headers, 
-            timeout: 15000,
-            maxRedirects: 0,
-            validateStatus: (status) => true
-          });
-          
-          console.log(`Redirect response status: ${redirectResponse.status}`);
-          
-          if (redirectResponse.data?.data) {
-            return redirectResponse.data.data.map(model => ({
-              id: model.id,
-              name: model.id,
-              owned_by: model.owned_by || 'unknown',
-            }));
-          }
-          
-          if (Array.isArray(redirectResponse.data)) {
-            return redirectResponse.data.map(model => ({
-              id: model.id || model.name,
-              name: model.id || model.name,
-              owned_by: model.owned_by || 'unknown',
-            }));
-          }
-        }
-        return [];
+        throw new Error(`目标返回 ${response.status} 重定向，请检查 Base URL 是否正确（Location: ${redirectUrl || 'unknown'}）`);
       }
       
       // 处理成功响应
@@ -132,6 +118,10 @@ class ProviderService {
         console.error('Response status:', error.response.status);
         console.error('Response headers:', error.response.headers);
         console.error('Response data:', error.response.data);
+      }
+      // 如果已经是自定义错误，直接抛出
+      if (error.message.includes('重定向')) {
+        throw error;
       }
       throw new Error(`无法获取模型列表: ${error.message}`);
     }
