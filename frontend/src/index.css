@@ -1,0 +1,156 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --apple-white: #ffffff;
+  --apple-gray-bg: #f5f5f7;
+  --apple-gray-light: #fbfbfd;
+  --apple-blue: #0071e3;
+  --apple-blue-hover: #0077ed;
+  --apple-blue-subtle: #e8f4fd;
+  --apple-text: #1d1d1f;
+  --apple-text-secondary: #6e6e73;
+  --apple-text-tertiary: #86868b;
+  --apple-border: #d2d2d7;
+  --apple-border-light: #e5e5ea;
+  --apple-success: #34c759;
+  --apple-warning: #ff9500;
+  --apple-error: #ff3b30;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--apple-gray-bg);
+  color: var(--apple-text);
+}
+
+@layer components {
+  .apple-card {
+    @apply bg-white rounded-apple-md p-6 shadow-apple-card transition-shadow duration-300 hover:shadow-apple-card-hover;
+  }
+
+  .apple-card-flat {
+    @apply bg-white rounded-apple-md p-6;
+  }
+
+  .apple-btn-primary {
+    @apply px-4 py-2.5 bg-apple-blue text-white font-medium rounded-apple-sm
+           hover:bg-apple-blue-hover active:scale-[0.98]
+           transition-all duration-200 shadow-apple-subtle
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .apple-btn-secondary {
+    @apply px-4 py-2.5 bg-white text-apple-text border border-apple-border font-medium rounded-apple-sm
+           hover:bg-gray-50 active:scale-[0.98]
+           transition-all duration-200;
+  }
+
+  .apple-btn-danger {
+    @apply px-4 py-2.5 bg-red-50 text-red-600 font-medium rounded-apple-sm
+           hover:bg-red-100 active:scale-[0.98]
+           transition-all duration-200;
+  }
+
+  .apple-input {
+    @apply w-full px-4 py-2.5 bg-white border border-apple-border-light rounded-apple-sm
+           text-apple-text placeholder:text-apple-text-tertiary
+           focus:outline-none focus:border-apple-blue focus:ring-1 focus:ring-apple-blue/20
+           transition-all duration-200;
+  }
+
+  .apple-input-error {
+    @apply border-apple-error focus:border-apple-error focus:ring-apple-error/20;
+  }
+
+  .apple-badge-success {
+    @apply px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700;
+  }
+
+  .apple-badge-warning {
+    @apply px-2 py-0.5 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700;
+  }
+
+  .apple-badge-error {
+    @apply px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700;
+  }
+
+  .apple-badge-neutral {
+    @apply px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600;
+  }
+
+  .apple-spinner {
+    @apply w-6 h-6 border-2 border-apple-blue border-t-transparent rounded-full animate-spin;
+  }
+
+  .apple-nav-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-apple-sm text-sm font-medium
+           transition-all duration-200;
+  }
+
+  .apple-nav-item-default {
+    @apply text-apple-text-secondary hover:bg-gray-100 hover:text-apple-text;
+  }
+
+  .apple-nav-item-active {
+    @apply bg-apple-blue text-white;
+  }
+
+  .apple-stat-card {
+    @apply apple-card flex flex-col;
+  }
+
+  .apple-stat-icon {
+    @apply w-10 h-10 rounded-apple-sm flex items-center justify-center mb-4;
+  }
+
+  .apple-stat-value {
+    @apply text-2xl font-semibold text-apple-text;
+  }
+
+  .apple-stat-label {
+    @apply text-sm text-apple-text-secondary mt-1;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d1d6;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #b8b8bf;
+}
+
+::selection {
+  background-color: var(--apple-blue-subtle);
+  color: var(--apple-blue);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@keyframes appleSpinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
