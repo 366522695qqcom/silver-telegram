@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useStore } from '@/store';
 import { apiKeysAPI } from '@/services/api';
 import type { ApiKey, CreateApiKeyData } from '@/types';
-import { Plus, Edit, Trash2, Copy, RefreshCw, CheckCircle, Eye, EyeOff } from 'lucide-react';
+import { Plus, Edit, Trash2, Copy, RefreshCw, CheckCircle, Eye, EyeOff, Key as KeyIcon } from 'lucide-react';
 
 export default function ApiKeys() {
   const { apiKeys, setApiKeys } = useStore();
@@ -216,7 +216,7 @@ export default function ApiKeys() {
                     <td colSpan={6} className="px-6 py-16 text-center text-apple-text-secondary">
                       <div className="flex flex-col items-center gap-2">
                         <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-                          <Key className="w-6 h-6 text-gray-400" />
+                          <KeyIcon className="w-6 h-6 text-gray-400" />
                         </div>
                         <p className="font-medium text-apple-text">暂无 API 密钥</p>
                         <p className="text-sm">点击上方按钮创建您的第一个密钥</p>
@@ -372,13 +372,5 @@ export default function ApiKeys() {
         </div>
       )}
     </div>
-  );
-}
-
-function Key({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
-    </svg>
   );
 }

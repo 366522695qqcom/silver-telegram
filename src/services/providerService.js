@@ -6,13 +6,15 @@ class ProviderService {
     const { base_url, api_key, provider_type } = config;
     
     try {
-      let testEndpoint = base_url;
       const headers = this.buildHeaders(provider_type, api_key);
+      let testEndpoint;
 
-      if (base_url.includes('/v1') || provider_type === 'openai') {
-        testEndpoint = base_url.replace(/\/$/, '') + '/models';
-      } else if (provider_type === 'anthropic') {
+      if (provider_type === 'anthropic') {
         return { success: true, message: 'Anthropic API key validated (no test endpoint)' };
+      } else if (provider_type === 'google') {
+        testEndpoint = this.buildGoogleUrl(base_url, api_key, 'models');
+      } else {
+        testEndpoint = base_url.replace(/\/$/, '') + '/models';
       }
 
       const response = await axios.get(testEndpoint, { headers, timeout: 10000, maxRedirects: 3 });
@@ -31,7 +33,13 @@ class ProviderService {
     
     try {
       const headers = this.buildHeaders(provider_type, api_key);
-      const modelsUrl = base_url.replace(/\/$/, '') + '/models';
+      let modelsUrl;
+
+      if (provider_type === 'google') {
+        modelsUrl = this.buildGoogleUrl(base_url, api_key, 'models');
+      } else {
+        modelsUrl = base_url.replace(/\/$/, '') + '/models';
+      }
       
       const response = await axios.get(modelsUrl, { headers, timeout: 15000, maxRedirects: 3 });
       
@@ -51,10 +59,18 @@ class ProviderService {
         }));
       }
 
+      if (response.data?.models && Array.isArray(response.data.models)) {
+        return response.data.models.map(model => ({
+          id: model.name || model.id,
+          name: model.displayName || model.name || model.id,
+          owned_by: model.owned_by || 'google',
+        }));
+      }
+
       return [];
     } catch (error) {
       if (error.message && error.message.includes('redirect')) {
-        throw new Error('获取模型列表失败：请求发生重定向循环，请检查 Base URL 是否正确（如 https://api.openai.com/v1）');
+        throw new Error('获取模型列表失败：请求发生重定向循环，请检查 Base URL 是否正确');
       }
       throw new Error(`Failed to fetch models: ${error.response?.data?.error?.message || error.message}`);
     }
@@ -67,11 +83,11 @@ class ProviderService {
 
     try {
       const headers = this.buildHeaders(provider_type, api_key);
-      let endpoint = base_url.replace(/\/$/, '');
-      let payload = { model, messages, max_tokens, temperature };
+      let endpoint;
+      let payload;
 
       if (provider_type === 'anthropic') {
-        endpoint += '/messages';
+        endpoint = base_url.replace(/\/$/, '') + '/messages';
         payload = {
           model,
           messages,
@@ -81,22 +97,32 @@ class ProviderService {
         if (requestData.system) {
           payload.system = requestData.system;
         }
+      } else if (provider_type === 'google') {
+        endpoint = this.buildGoogleUrl(base_url.replace(/\/$/, ''), api_key, `models/${model}:generateContent`);
+        payload = {
+          contents: this.convertToGoogleMessages(messages),
+          generationConfig: {
+            maxOutputTokens: max_tokens,
+            temperature,
+          },
+        };
       } else {
-        endpoint += '/chat/completions';
-        payload.stream = stream;
+        endpoint = base_url.replace(/\/$/, '') + '/chat/completions';
+        payload = { model, messages, max_tokens, temperature, stream };
       }
 
       const configOptions = { 
         headers, 
         timeout: 120000,
-        responseType: stream ? 'stream' : 'json',
+        maxRedirects: 3,
+        responseType: stream && provider_type !== 'google' ? 'stream' : 'json',
       };
 
       const response = await axios.post(endpoint, payload, configOptions);
 
       const latency = Date.now() - startTime;
 
-      if (stream) {
+      if (stream && provider_type !== 'google') {
         return {
           success: true,
           data: response.data,
@@ -137,7 +163,7 @@ class ProviderService {
         encoding_format: requestData.encoding_format || 'float',
       };
 
-      const response = await axios.post(endpoint, payload, { headers, timeout: 60000 });
+      const response = await axios.post(endpoint, payload, { headers, timeout: 60000, maxRedirects: 3 });
       const latency = Date.now() - startTime;
 
       return {
@@ -169,13 +195,24 @@ class ProviderService {
     if (providerType === 'anthropic') {
       headers['x-api-key'] = apiKey;
       headers['anthropic-version'] = '2023-06-01';
-    } else if (providerType === 'google') {
-      return headers;
     } else {
       headers['Authorization'] = `Bearer ${apiKey}`;
     }
 
     return headers;
+  }
+
+  buildGoogleUrl(baseUrl, apiKey, path) {
+    const base = baseUrl.replace(/\/$/, '');
+    const separator = base.includes('?') ? '&' : '?';
+    return `${base}/${path}${separator}key=${apiKey}`;
+  }
+
+  convertToGoogleMessages(messages) {
+    return messages.map(msg => ({
+      role: msg.role === 'assistant' ? 'model' : msg.role,
+      parts: [{ text: msg.content }],
+    }));
   }
 
   normalizeResponse(response, providerType) {
@@ -196,6 +233,28 @@ class ProviderService {
           prompt_tokens: response.usage?.input_tokens || 0,
           completion_tokens: response.usage?.output_tokens || 0,
           total_tokens: (response.usage?.input_tokens || 0) + (response.usage?.output_tokens || 0),
+        },
+      };
+    }
+
+    if (providerType === 'google') {
+      const candidate = response.candidates?.[0];
+      return {
+        id: response.id || `google-${Date.now()}`,
+        model: response.modelVersion || '',
+        provider: 'google',
+        choices: [{
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: candidate?.content?.parts?.[0]?.text || '',
+          },
+          finish_reason: candidate?.finishReason || 'stop',
+        }],
+        usage: {
+          prompt_tokens: response.usageMetadata?.promptTokenCount || 0,
+          completion_tokens: response.usageMetadata?.candidatesTokenCount || 0,
+          total_tokens: response.usageMetadata?.totalTokenCount || 0,
         },
       };
     }

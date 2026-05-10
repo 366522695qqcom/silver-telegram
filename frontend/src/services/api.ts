@@ -21,14 +21,25 @@ const request = async <T>(url: string, options: RequestInit = {}): Promise<T> =>
     credentials: 'include',
   });
 
+  if (response.status === 401) {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    window.location.href = '/';
+    throw new Error('登录已过期，请重新登录');
+  }
+
   if (!response.ok) {
     const text = await response.text();
-    let errorMessage = 'Request failed';
+    let errorMessage = '请求失败';
     try {
       const error = JSON.parse(text);
       errorMessage = error.error || errorMessage;
     } catch (e) {
-      errorMessage = text || errorMessage;
+      if (text.length > 200) {
+        errorMessage = `服务器错误 (${response.status})`;
+      } else {
+        errorMessage = text || errorMessage;
+      }
     }
     throw new Error(errorMessage);
   }

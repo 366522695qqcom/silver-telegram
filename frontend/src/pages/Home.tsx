@@ -5,7 +5,7 @@ import { Activity, Server, Key, Clock, TrendingUp, Zap } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 
 export default function Home() {
-  const { setProviders, setApiKeys, setStats } = useStore();
+  const { providers, apiKeys, setProviders, setApiKeys, setStats } = useStore();
   const [stats, setLocalStats] = useState<{
     total_requests: number;
     success_rate: number;
@@ -73,7 +73,7 @@ export default function Home() {
     {
       icon: Server,
       label: '已配置提供商',
-      value: useStore.getState().providers.length.toString(),
+      value: providers.length.toString(),
       color: 'green',
       bgColor: 'bg-green-50',
       iconColor: 'text-green-600',
@@ -81,7 +81,7 @@ export default function Home() {
     {
       icon: Key,
       label: 'API密钥',
-      value: useStore.getState().apiKeys.length.toString(),
+      value: apiKeys.length.toString(),
       color: 'orange',
       bgColor: 'bg-orange-50',
       iconColor: 'text-orange-600',
@@ -251,11 +251,11 @@ export default function Home() {
             </div>
             <div className="p-4 bg-apple-gray-bg rounded-apple-md">
               <p className="text-xs text-apple-text-tertiary mb-1">提供商数量</p>
-              <p className="text-xl font-semibold text-apple-text">{useStore.getState().providers.length}</p>
+              <p className="text-xl font-semibold text-apple-text">{providers.length}</p>
             </div>
             <div className="p-4 bg-apple-gray-bg rounded-apple-md">
               <p className="text-xs text-apple-text-tertiary mb-1">API密钥数量</p>
-              <p className="text-xl font-semibold text-apple-text">{useStore.getState().apiKeys.length}</p>
+              <p className="text-xl font-semibold text-apple-text">{apiKeys.length}</p>
             </div>
           </div>
         </div>
