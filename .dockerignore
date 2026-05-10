@@ -1,0 +1,9 @@
+node_modules
+frontend
+.git
+.trae
+.env
+*.db
+docs
+cookies.txt
+README.md
