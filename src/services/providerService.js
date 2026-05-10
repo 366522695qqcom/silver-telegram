@@ -1,7 +1,49 @@
-const axios = require('axios');
 const { Readable } = require('stream');
 
 class ProviderService {
+  isNativeGoogleApi(baseUrl) {
+    return baseUrl.includes('googleapis.com');
+  }
+
+  async httpRequest(url, options = {}) {
+    const { method = 'GET', headers = {}, body, timeout = 15000 } = options;
+    
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
+
+    try {
+      const fetchOptions = {
+        method,
+        headers,
+        signal: controller.signal,
+        redirect: 'follow',
+      };
+
+      if (body && method !== 'GET') {
+        fetchOptions.body = JSON.stringify(body);
+      }
+
+      const response = await fetch(url, fetchOptions);
+
+      const contentType = response.headers.get('content-type') || '';
+      let data;
+      if (contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        data = await response.text();
+        try {
+          data = JSON.parse(data);
+        } catch (e) {
+          // not JSON, keep as text
+        }
+      }
+
+      return { status: response.status, ok: response.ok, data, headers: response.headers };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async testConnection(config) {
     const { base_url, api_key, provider_type } = config;
     
@@ -11,19 +53,27 @@ class ProviderService {
 
       if (provider_type === 'anthropic') {
         return { success: true, message: 'Anthropic API key validated (no test endpoint)' };
-      } else if (provider_type === 'google') {
+      } else if (provider_type === 'google' && this.isNativeGoogleApi(base_url)) {
         testEndpoint = this.buildGoogleUrl(base_url, api_key, 'models');
       } else {
         testEndpoint = base_url.replace(/\/$/, '') + '/models';
       }
 
-      const response = await axios.get(testEndpoint, { headers, timeout: 10000, maxRedirects: 3 });
-      return { success: true, status: response.status, message: 'Connection successful' };
+      const response = await this.httpRequest(testEndpoint, { headers, timeout: 10000 });
+      
+      if (response.ok) {
+        return { success: true, status: response.status, message: 'Connection successful' };
+      }
+      
+      return { 
+        success: false, 
+        status: response.status,
+        message: response.data?.error?.message || `HTTP ${response.status}` 
+      };
     } catch (error) {
       return { 
         success: false, 
-        status: error.response?.status,
-        message: error.response?.data?.error?.message || error.message 
+        message: error.name === 'AbortError' ? 'Connection timed out' : (error.message || 'Unknown error')
       };
     }
   }
@@ -35,13 +85,17 @@ class ProviderService {
       const headers = this.buildHeaders(provider_type, api_key);
       let modelsUrl;
 
-      if (provider_type === 'google') {
+      if (provider_type === 'google' && this.isNativeGoogleApi(base_url)) {
         modelsUrl = this.buildGoogleUrl(base_url, api_key, 'models');
       } else {
         modelsUrl = base_url.replace(/\/$/, '') + '/models';
       }
       
-      const response = await axios.get(modelsUrl, { headers, timeout: 15000, maxRedirects: 3 });
+      const response = await this.httpRequest(modelsUrl, { headers, timeout: 15000 });
+
+      if (!response.ok) {
+        throw new Error(response.data?.error?.message || `HTTP ${response.status}`);
+      }
       
       if (response.data?.data) {
         return response.data.data.map(model => ({
@@ -72,7 +126,7 @@ class ProviderService {
       if (error.message && error.message.includes('redirect')) {
         throw new Error('获取模型列表失败：请求发生重定向循环，请检查 Base URL 是否正确');
       }
-      throw new Error(`Failed to fetch models: ${error.response?.data?.error?.message || error.message}`);
+      throw new Error(`Failed to fetch models: ${error.message}`);
     }
   }
 
@@ -97,7 +151,7 @@ class ProviderService {
         if (requestData.system) {
           payload.system = requestData.system;
         }
-      } else if (provider_type === 'google') {
+      } else if (provider_type === 'google' && this.isNativeGoogleApi(base_url)) {
         endpoint = this.buildGoogleUrl(base_url.replace(/\/$/, ''), api_key, `models/${model}:generateContent`);
         payload = {
           contents: this.convertToGoogleMessages(messages),
@@ -111,29 +165,40 @@ class ProviderService {
         payload = { model, messages, max_tokens, temperature, stream };
       }
 
-      const configOptions = { 
-        headers, 
-        timeout: 120000,
-        maxRedirects: 3,
-        responseType: stream && provider_type !== 'google' ? 'stream' : 'json',
-      };
+      if (stream && provider_type !== 'google') {
+        const axios = require('axios');
+        const response = await axios.post(endpoint, payload, { 
+          headers, 
+          timeout: 120000, 
+          maxRedirects: 5,
+          responseType: 'stream',
+        });
+        const latency = Date.now() - startTime;
+        return { success: true, data: response.data, latency_ms: latency, isStream: true };
+      }
 
-      const response = await axios.post(endpoint, payload, configOptions);
+      const response = await this.httpRequest(endpoint, { 
+        method: 'POST', 
+        headers, 
+        body: payload, 
+        timeout: 120000 
+      });
 
       const latency = Date.now() - startTime;
 
-      if (stream && provider_type !== 'google') {
+      if (!response.ok) {
         return {
-          success: true,
-          data: response.data,
+          success: false,
+          error: response.data?.error?.message || `HTTP ${response.status}`,
+          status_code: response.status,
           latency_ms: latency,
-          isStream: true,
+          isStream: false,
         };
       }
 
       return {
         success: true,
-        data: this.normalizeResponse(response.data, provider_type),
+        data: this.normalizeResponse(response.data, provider_type, base_url),
         latency_ms: latency,
         isStream: false,
       };
@@ -141,8 +206,8 @@ class ProviderService {
       const latency = Date.now() - startTime;
       return {
         success: false,
-        error: error.response?.data?.error?.message || error.message,
-        status_code: error.response?.status,
+        error: error.message,
+        status_code: undefined,
         latency_ms: latency,
         isStream: false,
       };
@@ -163,8 +228,23 @@ class ProviderService {
         encoding_format: requestData.encoding_format || 'float',
       };
 
-      const response = await axios.post(endpoint, payload, { headers, timeout: 60000, maxRedirects: 3 });
+      const response = await this.httpRequest(endpoint, { 
+        method: 'POST', 
+        headers, 
+        body: payload, 
+        timeout: 60000 
+      });
+
       const latency = Date.now() - startTime;
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: response.data?.error?.message || `HTTP ${response.status}`,
+          status_code: response.status,
+          latency_ms: latency,
+        };
+      }
 
       return {
         success: true,
@@ -180,8 +260,8 @@ class ProviderService {
       const latency = Date.now() - startTime;
       return {
         success: false,
-        error: error.response?.data?.error?.message || error.message,
-        status_code: error.response?.status,
+        error: error.message,
+        status_code: undefined,
         latency_ms: latency,
       };
     }
@@ -190,6 +270,7 @@ class ProviderService {
   buildHeaders(providerType, apiKey) {
     const headers = {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
     };
 
     if (providerType === 'anthropic') {
@@ -215,7 +296,7 @@ class ProviderService {
     }));
   }
 
-  normalizeResponse(response, providerType) {
+  normalizeResponse(response, providerType, baseUrl) {
     if (providerType === 'anthropic') {
       return {
         id: response.id,
@@ -237,7 +318,7 @@ class ProviderService {
       };
     }
 
-    if (providerType === 'google') {
+    if (providerType === 'google' && this.isNativeGoogleApi(baseUrl || '')) {
       const candidate = response.candidates?.[0];
       return {
         id: response.id || `google-${Date.now()}`,
