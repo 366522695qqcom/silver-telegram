@@ -54,8 +54,11 @@ export default function Settings() {
     }
   }, [selectedProvider]);
 
+  const [modelsError, setModelsError] = useState<string | null>(null);
+  
   const fetchModels = async (providerId: string) => {
     setIsRefreshingModels(true);
+    setModelsError(null);
     try {
       const data = await providersAPI.getModels(providerId);
       if (data && data.models) {
@@ -68,22 +71,36 @@ export default function Settings() {
     } catch (error) {
       console.error('Failed to fetch models:', error);
       setModels([]);
+      setModelsError((error as Error).message || '获取模型列表失败');
     } finally {
       setIsRefreshingModels(false);
     }
   };
 
-  const handleSelectProvider = (provider: Provider) => {
+  const handleSelectProvider = async (provider: Provider) => {
     console.log('handleSelectProvider called with provider:', provider);
     setSelectedProvider(provider);
     setIsEditing(false);
     setTestResult(null);
+    setModelsError(null);
     setFormData({
       provider_name: provider.provider_name,
       provider_type: provider.provider_type,
-      api_key: (provider as any).api_key || '',
+      api_key: '',
       base_url: provider.base_url,
     });
+    try {
+      const fullProvider = await providersAPI.getById(provider.id);
+      setSelectedProvider(fullProvider);
+      setFormData({
+        provider_name: fullProvider.provider_name,
+        provider_type: fullProvider.provider_type,
+        api_key: (fullProvider as any).api_key || '',
+        base_url: fullProvider.base_url,
+      });
+    } catch (error) {
+      console.error('Failed to fetch provider details:', error);
+    }
   };
 
   const handleCreate = async () => {
@@ -447,6 +464,18 @@ export default function Settings() {
                     )}
                   </button>
                 </div>
+
+                {modelsError && (
+                  <div className="apple-card rounded-apple-md p-5 border-2 border-red-200 apple-badge-error">
+                    <div className="flex items-center gap-3">
+                      <XCircle className="w-6 h-6 text-red-600" />
+                      <div>
+                        <p className="font-semibold text-red-800">获取模型列表失败</p>
+                        <p className="text-sm mt-1 text-red-600">{modelsError}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {testResult && (
                   <div className={`apple-card rounded-apple-md p-5 ${
