@@ -27,18 +27,9 @@ const PORT = process.env.PORT || 3000;
 
 const app = express();
 
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:3000',
-  process.env.FRONTEND_URL,
-].filter(Boolean);
-
-app.use(helmet({
-  contentSecurityPolicy: false,
-  crossOriginEmbedderPolicy: false,
-}));
+app.use(helmet());
 app.use(cors({
-  origin: allowedOrigins,
+  origin: ['http://localhost:5173', 'http://localhost:3000', process.env.FRONTEND_URL],
   credentials: true,
 }));
 
@@ -75,9 +66,8 @@ app.get('/api/health', (req, res) => {
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
-    credentials: true,
-  },
+    origin: ['http://localhost:5173', 'http://localhost:3000', process.env.FRONTEND_URL],
+    credentials: true,  },
 });
 
 let requestStats = {
