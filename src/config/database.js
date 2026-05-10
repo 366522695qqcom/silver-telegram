@@ -1,7 +1,11 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { createClient } = require('@libsql/client');
 
-const dbPath = path.join(__dirname, '../local.db');
-const db = new sqlite3.Database(dbPath);
+const url = process.env.LIBSQL_URL || 'file:./local.db';
+const authToken = process.env.LIBSQL_AUTH_TOKEN || undefined;
 
-module.exports = db;
+const client = createClient({
+  url,
+  authToken,
+});
+
+module.exports = client;
