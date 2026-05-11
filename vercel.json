@@ -2,7 +2,7 @@
   "buildCommand": "cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/dist",
   "functions": {
-    "api/[...path].js": {
+    "api/[[...path]].js": {
       "runtime": "@vercel/node@3"
     }
   }
