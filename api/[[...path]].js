@@ -9,8 +9,6 @@ try {
 }
 
 module.exports = (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-
   if (initError) {
     res.status(500).json({
       error: 'Server initialization failed',
@@ -19,6 +17,5 @@ module.exports = (req, res) => {
     });
     return;
   }
-
   app(req, res);
 };
