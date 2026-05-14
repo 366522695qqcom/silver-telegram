@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, RefreshCw, Edit, MoreHorizontal } from 'lucide-react';
+import { Plus, Trash2, Edit } from 'lucide-react';
 import { routingAPI } from '@/services/api';
 
 interface RoutingRule {
