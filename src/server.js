@@ -63,6 +63,7 @@ let dbInitError = null;
 const dbInitPromise = initializeDatabase()
   .then(() => {
     dbReady = true;
+    console.log('Database initialized successfully');
   })
   .catch(err => {
     dbInitError = err;
@@ -76,7 +77,7 @@ app.use(async (req, res, next) => {
     // already caught above
   }
   if (!dbReady) {
-    return res.status(503).json({ error: 'Service unavailable: database not initialized' });
+    console.warn('Request received but database is not initialized:', req.method, req.url);
   }
   next();
 });
