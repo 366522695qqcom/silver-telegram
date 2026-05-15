@@ -1,16 +1,19 @@
-const db = require('../config/database');
+const { getClient } = require('../config/database');
 
 const query = async (sql, params = []) => {
+  const db = getClient();
   const result = await db.execute({ sql, args: params });
   return { rows: result.rows };
 };
 
 const run = async (sql, params = []) => {
+  const db = getClient();
   const result = await db.execute({ sql, args: params });
   return { lastID: result.rows[0]?.id || null, changes: result.rowsAffected };
 };
 
 const initializeDatabase = async () => {
+  const db = getClient();
   const statements = [
     `CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
@@ -148,9 +151,7 @@ const initializeDatabase = async () => {
     )`
   ];
 
-  for (const stmt of statements) {
-    await db.execute(stmt);
-  }
+  await Promise.all(statements.map(stmt => db.execute(stmt)));
 };
 
 module.exports = { query, run, initializeDatabase };

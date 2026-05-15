@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Eye, MoreHorizontal, Webhook } from 'lucide-react';
+import { Plus, Trash2, Eye, Webhook } from 'lucide-react';
 import { asyncAPI, webhookAPI } from '@/services/api';
 
 interface AsyncTask {
@@ -81,7 +81,7 @@ export default function AsyncTasks() {
       setTestResult(res);
     } catch (error) {
       console.error('Failed to test webhook:', error);
-      setTestResult({ success: false, error: error.message });
+      setTestResult({ success: false, error: (error as Error).message });
     }
   };
 

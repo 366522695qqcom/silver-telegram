@@ -32,11 +32,25 @@ export default function Monitor() {
   }, []);
 
   useEffect(() => {
-    socketRef.current = io('http://localhost:3000');
-
-    socketRef.current.on('stats', (newStats: Stats) => {
-      setStats(newStats);
-    });
+    try {
+      const socketUrl = window.location.hostname === 'localhost'
+        ? 'http://localhost:3000'
+        : undefined;
+      if (socketUrl) {
+        socketRef.current = io(socketUrl, {
+          reconnectionAttempts: 3,
+          timeout: 5000,
+        });
+        socketRef.current.on('stats', (newStats: Stats) => {
+          setStats(newStats);
+        });
+        socketRef.current.on('connect_error', () => {
+          socketRef.current?.disconnect();
+        });
+      }
+    } catch {
+      // socket.io not available (Vercel serverless)
+    }
 
     return () => {
       if (socketRef.current) {

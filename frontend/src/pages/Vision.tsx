@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Image, Upload, Eye, Send, Sparkles } from 'lucide-react';
+import { Eye, Send, Sparkles } from 'lucide-react';
 import { visionAPI, imagesAPI, providersAPI } from '@/services/api';
 
 interface Provider {

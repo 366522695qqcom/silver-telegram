@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Play, Eye, MoreHorizontal } from 'lucide-react';
+import { Plus, Trash2, Eye } from 'lucide-react';
 import { batchAPI } from '@/services/api';
 
 interface BatchTask {

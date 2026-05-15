@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Edit, Play, Eye, MoreHorizontal } from 'lucide-react';
+import { Plus, Trash2, Edit, Play } from 'lucide-react';
 import { toolsAPI } from '@/services/api';
 
 interface Tool {
