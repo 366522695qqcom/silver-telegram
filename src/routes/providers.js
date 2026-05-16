@@ -42,7 +42,7 @@ router.get('/models', authenticateToken, async (req, res) => {
       models,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -211,7 +211,7 @@ router.get('/:id/models', authenticateToken, async (req, res) => {
       models,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

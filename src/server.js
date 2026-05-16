@@ -60,26 +60,65 @@ app.use(cookieParser());
 
 let dbReady = false;
 let dbInitError = null;
-const dbInitPromise = initializeDatabase()
-  .then(() => {
-    dbReady = true;
-    console.log('Database initialized successfully');
-  })
-  .catch(err => {
-    dbInitError = err;
-    console.error('Database initialization failed:', err.message || err);
-  });
+let dbErrorType = null;
+let dbInitPromise = null;
+
+const startDbInit = () => {
+  if (dbInitPromise) return dbInitPromise;
+  dbInitPromise = initializeDatabase()
+    .then(() => {
+      dbReady = true;
+      console.log('Database initialized successfully');
+    })
+    .catch(err => {
+      dbInitError = err;
+      const { classifyError } = require('./config/database');
+      dbErrorType = classifyError(err);
+      console.error('Database initialization failed:', dbErrorType, '-', (err.message || err).substring(0, 200));
+    });
+  return dbInitPromise;
+};
+
+app.get('/api/ping', async (req, res) => {
+  const start = Date.now();
+  const token = process.env.LIBSQL_AUTH_TOKEN || '';
+  const url = process.env.LIBSQL_URL || '';
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const resp = await fetch('https://h-hwhjk.aws-ap-northeast-1.turso.io/v2/pipeline', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ requests: [{ type: 'execute', stmt: { sql: 'SELECT 1' } }] }),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    const data = await resp.json();
+    res.json({ ok: true, latency: Date.now() - start, status: resp.status, hasToken: !!token, tokenLen: token.length, urlLen: url.length, rows: data?.results?.[0]?.response?.result?.rows?.length });
+  } catch (e) {
+    res.json({ ok: false, latency: Date.now() - start, error: e.message?.substring(0, 150), name: e.name, hasToken: !!token });
+  }
+});
 
 app.use(async (req, res, next) => {
-  try {
-    await dbInitPromise;
-  } catch (e) {
-    // already caught above
-  }
-  if (!dbReady) {
+  startDbInit();
+  if (!dbReady && !dbInitError) {
     console.warn('Request received but database is not initialized:', req.method, req.url);
   }
   next();
+});
+
+app.get('/api/health', async (req, res) => {
+  if (!dbReady && !dbInitError) {
+    await Promise.race([
+      startDbInit(),
+      new Promise(r => setTimeout(r, 5000))
+    ]);
+  }
+  res.json({ status: 'ok', timestamp: Date.now(), db: dbReady ? 'connected' : 'error', dbError: dbReady ? null : dbErrorType, vercel: isVercel });
 });
 
 app.use('/api/auth', authRoutes);
@@ -96,10 +135,6 @@ app.use('/api/vision', visionRoutes);
 app.use('/api/images', imagesRoutes);
 app.use('/api/async', asyncRoutes);
 app.use('/api/webhooks', webhooksRoutes);
-
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: Date.now(), db: dbReady ? 'connected' : 'error', vercel: isVercel });
-});
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Not found', path: req.url });
@@ -163,7 +198,7 @@ if (!isVercel) {
 
   const startServer = async () => {
     try {
-      await dbInitPromise;
+      await startDbInit();
       if (dbInitError) {
         console.error('Cannot start server: database initialization failed');
         process.exit(1);

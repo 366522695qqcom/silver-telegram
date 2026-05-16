@@ -15,7 +15,7 @@ router.post('/test', async (req, res) => {
     const result = await WebhookService.testWebhook(webhook_url, webhook_secret);
     res.json(result);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

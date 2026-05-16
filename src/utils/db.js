@@ -1,19 +1,31 @@
-const { getClient } = require('../config/database');
+const { getClient, classifyError } = require('../config/database');
+const { executeTurso } = require('../config/turso');
 
-const query = async (sql, params = []) => {
+const isRemoteUrl = () => {
+  const url = process.env.LIBSQL_URL || '';
+  return url.startsWith('libsql://') || url.startsWith('https://');
+};
+
+const execute = async (sql, params = []) => {
+  if (isRemoteUrl()) {
+    return executeTurso(sql, params);
+  }
   const db = getClient();
   const result = await db.execute({ sql, args: params });
+  return { rows: result.rows, rowsAffected: result.rowsAffected };
+};
+
+const query = async (sql, params = []) => {
+  const result = await execute(sql, params);
   return { rows: result.rows };
 };
 
 const run = async (sql, params = []) => {
-  const db = getClient();
-  const result = await db.execute({ sql, args: params });
-  return { lastID: result.rows[0]?.id || null, changes: result.rowsAffected };
+  const result = await execute(sql, params);
+  return { lastID: result.rows[0]?.id || null, changes: result.rowsAffected || 0 };
 };
 
 const initializeDatabase = async () => {
-  const db = getClient();
   const statements = [
     `CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
@@ -151,7 +163,16 @@ const initializeDatabase = async () => {
     )`
   ];
 
-  await Promise.all(statements.map(stmt => db.execute(stmt)));
+  try {
+    for (const stmt of statements) {
+      await execute(stmt);
+    }
+    console.log('Database tables initialized successfully');
+  } catch (error) {
+    const errorType = classifyError(error);
+    console.error('Database table initialization failed:', errorType, (error.message || String(error)).substring(0, 200));
+    throw error;
+  }
 };
 
 module.exports = { query, run, initializeDatabase };

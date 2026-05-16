@@ -65,7 +65,7 @@ class ProviderService {
         modelsUrl = modelsUrl.replace(/\/$/, '') + '/v1/models';
       }
       
-      console.log(`Fetching models from: ${modelsUrl}`);
+      console.log('Fetching models from provider');
       
       const response = await axios.get(modelsUrl, getAxiosConfig({ 
         headers, 
@@ -89,14 +89,13 @@ class ProviderService {
         }));
       }
 
-      console.error(`Unexpected response format:`, response.data);
+      console.error('Unexpected response format from provider');
       return [];
       
     } catch (error) {
       console.error(`Failed to fetch models from ${base_url}:`, error.message);
       if (error.response) {
-        console.error('Response status:', error.response.status);
-        console.error('Response data:', error.response.data);
+        console.error('Provider request failed with status', error.response?.status || 'unknown');
         throw new Error(`无法获取模型列表: ${error.response.data?.error?.message || `HTTP ${error.response.status}`}`);
       }
       throw new Error(`无法获取模型列表: ${error.message}`);

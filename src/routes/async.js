@@ -11,7 +11,7 @@ router.get('/tasks', async (req, res) => {
     const tasks = await WebhookService.getTasks(req.user.id);
     res.json({ tasks });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -23,7 +23,7 @@ router.get('/tasks/:id', async (req, res) => {
     }
     res.json({ task });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -41,7 +41,7 @@ router.post('/tasks', async (req, res) => {
     });
     res.status(201).json({ task });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -50,7 +50,7 @@ router.delete('/tasks/:id', async (req, res) => {
     await WebhookService.deleteTask(req.user.id, req.params.id);
     res.json({ message: '任务已删除' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

@@ -11,7 +11,7 @@ router.get('/', async (req, res) => {
     const tools = await ToolService.getTools(req.user.id);
     res.json({ tools });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -23,7 +23,7 @@ router.get('/:id', async (req, res) => {
     }
     res.json({ tool });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -44,7 +44,7 @@ router.post('/', async (req, res) => {
     });
     res.status(201).json({ tool });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -68,7 +68,7 @@ router.put('/:id', async (req, res) => {
     }
     res.json({ tool });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -77,7 +77,7 @@ router.delete('/:id', async (req, res) => {
     await ToolService.deleteTool(req.user.id, req.params.id);
     res.json({ message: '工具已删除' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -90,7 +90,7 @@ router.post('/:id/execute', async (req, res) => {
     const result = await ToolService.executeTool(tool, req.body.parameters || {});
     res.json({ result });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

@@ -22,7 +22,7 @@ router.post('/analyze', async (req, res) => {
     const result = await VisionService.analyzeImage(providersResult.rows[0], image_url, prompt);
     res.json(result);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -41,7 +41,7 @@ router.post('/chat', async (req, res) => {
     const result = await VisionService.visionChat(providersResult.rows[0], messages, options || {});
     res.json(result);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

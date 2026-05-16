@@ -78,7 +78,7 @@ router.post('/completions', authenticateApiKey, async (req, res) => {
 
       result.data.on('error', async (err) => {
         await routerService.recordProviderStatus(provider.id, false, latency);
-        res.status(500).end(JSON.stringify({ error: err.message }));
+        res.status(500).end(JSON.stringify({ error: 'Internal server error' }));
       });
 
       return;
@@ -130,7 +130,7 @@ router.post('/completions', authenticateApiKey, async (req, res) => {
     if (provider) {
       await routerService.recordProviderStatus(provider.id, false, latency);
     }
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -193,7 +193,7 @@ router.post('/embeddings', authenticateApiKey, async (req, res) => {
       'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, error_message) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [requestId, req.apiKey.id, 'unknown', req.body.model || 'unknown', 500, latency, error.message]
     );
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -246,7 +246,7 @@ router.get('/models', authenticateApiKey, async (req, res) => {
 
     res.json(allModels);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

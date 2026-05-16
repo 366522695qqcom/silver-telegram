@@ -22,7 +22,7 @@ router.post('/generations', async (req, res) => {
     const result = await VisionService.generateImage(providersResult.rows[0], prompt, options || {});
     res.json(result);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

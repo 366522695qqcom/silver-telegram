@@ -12,7 +12,7 @@ router.get('/rules', async (req, res) => {
     const rules = await RoutingService.getRules(req.user.id);
     res.json({ rules });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -24,7 +24,7 @@ router.get('/rules/:id', async (req, res) => {
     }
     res.json({ rule });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -43,7 +43,7 @@ router.post('/rules', async (req, res) => {
     });
     res.status(201).json({ rule });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -65,7 +65,7 @@ router.put('/rules/:id', async (req, res) => {
     }
     res.json({ rule });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -74,7 +74,7 @@ router.delete('/rules/:id', async (req, res) => {
     await RoutingService.deleteRule(req.user.id, req.params.id);
     res.json({ message: '规则已删除' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -84,7 +84,7 @@ router.post('/healthcheck', async (req, res) => {
     const results = await RoutingService.runHealthChecks(req.user.id, providersResult.rows);
     res.json({ results });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

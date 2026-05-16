@@ -4,7 +4,7 @@ const path = require('path');
 
 const vercelOutput = path.join(__dirname, '.vercel', 'output');
 const staticDir = path.join(vercelOutput, 'static');
-const funcDir = path.join(vercelOutput, 'functions', 'api', 'index.func');
+const funcDir = path.join(vercelOutput, 'functions', '[[...path]].func');
 
 fs.rmSync(vercelOutput, { recursive: true, force: true });
 fs.mkdirSync(staticDir, { recursive: true });
@@ -39,7 +39,7 @@ try {
 
 module.exports = (req, res) => {
   if (initError) {
-    res.status(500).json({ error: 'Server initialization failed', message: initError.message });
+    res.status(500).json({ error: 'Service temporarily unavailable' });
     return;
   }
   app(req, res);
@@ -60,10 +60,8 @@ fs.writeFileSync(path.join(funcDir, '.vc-config.json'), JSON.stringify({
 fs.writeFileSync(path.join(vercelOutput, 'config.json'), JSON.stringify({
   version: 3,
   routes: [
-    { src: '^/api/(.*)$', dest: '/api/$1' },
-    { src: '^/assets/(.*)$', dest: '/assets/$1' },
-    { src: '^/(.*\\.svg)$', dest: '/$1' },
-    { src: '^/(.*)$', dest: '/index.html' },
+    { handle: 'filesystem' },
+    { src: '/(.*)', dest: '/index.html' },
   ],
 }, null, 2));
 

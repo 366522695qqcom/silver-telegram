@@ -20,7 +20,7 @@ router.get('/monthly', authenticateToken, async (req, res) => {
       ...usage,
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -95,7 +95,7 @@ router.post('/prices', authenticateToken, async (req, res) => {
     await costService.setPrice(req.user.id, provider_name, model, prompt_price, completion_price);
     res.json({ message: 'Price configuration saved' });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
