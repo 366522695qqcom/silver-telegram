@@ -4,11 +4,11 @@ const path = require('path');
 
 const vercelOutput = path.join(__dirname, '.vercel', 'output');
 const staticDir = path.join(vercelOutput, 'static');
-const funcDir = path.join(vercelOutput, 'functions', '[[...path]].func');
+const functionsDir = path.join(vercelOutput, 'functions', 'api');
 
 fs.rmSync(vercelOutput, { recursive: true, force: true });
 fs.mkdirSync(staticDir, { recursive: true });
-fs.mkdirSync(funcDir, { recursive: true });
+fs.mkdirSync(functionsDir, { recursive: true });
 
 console.log('Installing root dependencies...');
 execSync('npm install', { stdio: 'inherit', cwd: __dirname });
@@ -25,13 +25,20 @@ for (const file of fs.readdirSync(distDir)) {
   fs.cpSync(path.join(distDir, file), path.join(staticDir, file), { recursive: true });
 }
 
-console.log('Setting up API function...');
+console.log('Setting up API functions...');
+
+console.log('Bundling server with esbuild...');
+execSync('npx esbuild src/server.js --bundle --platform=node --target=node20 --outfile=.vercel/output/functions/api/index.func/server-bundle.js --external:socket.io --external:express-rate-limit', {
+  stdio: 'inherit',
+  cwd: __dirname,
+});
+
 const apiFuncContent = `
 let app;
 let initError;
 
 try {
-  app = require('../../../../src/server');
+  app = require('./server-bundle');
 } catch (error) {
   initError = error;
   console.error('Server init failed:', error.message);
@@ -45,9 +52,8 @@ module.exports = (req, res) => {
   app(req, res);
 };
 `;
-fs.writeFileSync(path.join(funcDir, 'index.js'), apiFuncContent);
 
-fs.writeFileSync(path.join(funcDir, '.vc-config.json'), JSON.stringify({
+const vcConfig = {
   runtime: 'nodejs20.x',
   handler: 'index.js',
   memory: 512,
@@ -55,12 +61,19 @@ fs.writeFileSync(path.join(funcDir, '.vc-config.json'), JSON.stringify({
   launcherType: 'Nodejs',
   shouldAddHelpers: true,
   shouldAddSourcemapSupport: false,
-}, null, 2));
+};
+
+const indexDir = path.join(functionsDir, 'index.func');
+fs.mkdirSync(indexDir, { recursive: true });
+fs.writeFileSync(path.join(indexDir, 'index.js'), apiFuncContent);
+fs.writeFileSync(path.join(indexDir, '.vc-config.json'), JSON.stringify(vcConfig, null, 2));
 
 fs.writeFileSync(path.join(vercelOutput, 'config.json'), JSON.stringify({
   version: 3,
   routes: [
-    { handle: 'filesystem' },
+    { src: '^/api/(.*)$', dest: '/api?__path=$1' },
+    { src: '/assets/(.*)', dest: '/assets/$1' },
+    { src: '/(.*\\.svg)', dest: '/$1' },
     { src: '/(.*)', dest: '/index.html' },
   ],
 }, null, 2));

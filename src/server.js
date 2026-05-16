@@ -26,8 +26,9 @@ const isVercel = !!process.env.VERCEL;
 const app = express();
 
 app.use((req, res, next) => {
-  if (isVercel && req.url !== '/api' && !req.url.startsWith('/api/')) {
-    req.url = '/api/' + req.url.replace(/^\//, '');
+  if (isVercel && req.query.__path) {
+    req.url = '/api/' + req.query.__path;
+    delete req.query.__path;
   }
   next();
 });

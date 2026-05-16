@@ -28,7 +28,7 @@ const executeTurso = async (sql, params = []) => {
   const baseUrl = url.replace(/\/$/, '');
   const pipelineUrl = `${baseUrl}${TURSO_PIPELINE}`;
 
-  const timeout = parseInt(process.env.DB_CONNECT_TIMEOUT, 10) || 8000;
+  const timeout = parseInt(process.env.DB_CONNECT_TIMEOUT, 10) || 10000;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
 
