@@ -30,19 +30,29 @@ router.get('/models', authenticateToken, async (req, res) => {
     }
 
     const provider = providersResult.rows[0];
-    const models = await require('../services/providerService').getModels({
-      base_url: provider.base_url,
-      api_key: provider.api_key,
-      provider_type: provider.provider_type,
-    });
+    try {
+      const models = await providerService.getModels({
+        base_url: provider.base_url,
+        api_key: provider.api_key,
+        provider_type: provider.provider_type,
+      });
 
-    res.json({
-      provider_id: provider.id,
-      provider_name: provider.provider_name,
-      models,
-    });
+      res.json({
+        provider_id: provider.id,
+        provider_name: provider.provider_name,
+        models,
+      });
+    } catch (modelError) {
+      res.json({
+        provider_id: provider.id,
+        provider_name: provider.provider_name,
+        models: [],
+        error: 'Failed to fetch models from provider: ' + (modelError.message || 'unknown error'),
+      });
+    }
   } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Provider models error:', error.message || error, error.stack?.substring(0, 500));
+    res.status(500).json({ error: 'Failed to fetch models: ' + (error.message || 'Internal server error') });
   }
 });
 
@@ -199,17 +209,26 @@ router.get('/:id/models', authenticateToken, async (req, res) => {
     }
 
     const provider = result.rows[0];
-    const models = await providerService.getModels({
-      base_url: provider.base_url,
-      api_key: provider.api_key,
-      provider_type: provider.provider_type,
-    });
+    try {
+      const models = await providerService.getModels({
+        base_url: provider.base_url,
+        api_key: provider.api_key,
+        provider_type: provider.provider_type,
+      });
 
-    res.json({
-      provider_id: provider.id,
-      provider_name: provider.provider_name,
-      models,
-    });
+      res.json({
+        provider_id: provider.id,
+        provider_name: provider.provider_name,
+        models,
+      });
+    } catch (modelError) {
+      res.json({
+        provider_id: provider.id,
+        provider_name: provider.provider_name,
+        models: [],
+        error: 'Failed to fetch models from provider: ' + (modelError.message || 'unknown error'),
+      });
+    }
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }

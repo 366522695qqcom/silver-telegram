@@ -1,5 +1,5 @@
 import Cookies from 'js-cookie';
-import type { User, Provider, ApiKey, Request, AuditLog, ModelListResponse, LoginData, RegisterData, CreateProviderData, CreateApiKeyData, TestConnectionResult } from '@/types';
+import type { User, Provider, ApiKey, Request, AuditLog, ModelListResponse, LoginData, RegisterData, CreateProviderData, CreateApiKeyData, TestConnectionResult, CustomModel, CreateCustomModelData } from '@/types';
 
 const request = async <T>(url: string, options: RequestInit = {}): Promise<T> => {
   const headers: Record<string, string> = {
@@ -419,5 +419,32 @@ export const webhookAPI = {
       method: 'POST',
       body: JSON.stringify({ webhook_url: webhookUrl, webhook_secret: webhookSecret }),
     });
+  },
+};
+
+export const customModelsAPI = {
+  getAll: async (): Promise<CustomModel[]> => {
+    return request('/custom-models');
+  },
+  create: async (data: CreateCustomModelData): Promise<CustomModel> => {
+    return request('/custom-models', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  update: async (id: string, data: Partial<CreateCustomModelData & { enabled: boolean }>): Promise<CustomModel> => {
+    return request(`/custom-models/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  delete: async (id: string): Promise<void> => {
+    return request(`/custom-models/${id}`, { method: 'DELETE' });
+  },
+  toggleStatus: async (id: string): Promise<CustomModel> => {
+    return request(`/custom-models/${id}/toggle`, { method: 'POST' });
+  },
+  testConnection: async (id: string): Promise<{ success: boolean; status?: number; message: string; availableModels?: string[] }> => {
+    return request(`/custom-models/${id}/test`, { method: 'POST' });
   },
 };

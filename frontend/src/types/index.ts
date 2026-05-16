@@ -66,6 +66,7 @@ export interface ModelListResponse {
   provider_id: string;
   provider_name: string;
   models: Model[];
+  error?: string;
 }
 
 export interface Stats {
@@ -102,4 +103,26 @@ export interface TestConnectionResult {
   success: boolean;
   status?: number;
   message: string;
+  availableModels?: string[];
+}
+
+export interface CustomModel {
+  id: string;
+  user_id: string;
+  provider_id: string | null;
+  provider_name?: string;
+  model_name: string;
+  model_id: string;
+  base_url: string | null;
+  api_key: string | null;
+  enabled: number;
+  created_at: string;
+}
+
+export interface CreateCustomModelData {
+  provider_id?: string;
+  model_name: string;
+  model_id: string;
+  base_url?: string;
+  api_key?: string;
 }

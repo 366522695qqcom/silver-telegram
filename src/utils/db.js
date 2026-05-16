@@ -160,6 +160,17 @@ const initializeDatabase = async () => {
       completed_at TIMESTAMP,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS custom_models (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      provider_id TEXT,
+      model_name TEXT NOT NULL,
+      model_id TEXT NOT NULL,
+      base_url TEXT,
+      api_key TEXT,
+      enabled INTEGER DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`
   ];
 

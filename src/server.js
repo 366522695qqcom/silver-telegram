@@ -18,6 +18,7 @@ const toolsRoutes = require('./routes/tools');
 const visionRoutes = require('./routes/vision');
 const imagesRoutes = require('./routes/images');
 const asyncRoutes = require('./routes/async');
+const customModelsRoutes = require('./routes/customModels');
 const webhooksRoutes = require('./routes/webhooks');
 
 const PORT = process.env.PORT || 3000;
@@ -136,6 +137,7 @@ app.use('/api/vision', visionRoutes);
 app.use('/api/images', imagesRoutes);
 app.use('/api/async', asyncRoutes);
 app.use('/api/webhooks', webhooksRoutes);
+app.use('/api/custom-models', customModelsRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Not found', path: req.url });
