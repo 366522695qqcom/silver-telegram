@@ -28,9 +28,12 @@ router.post('/register', authLimiter, async (req, res) => {
       [userId, email, passwordHash, name || null]
     );
 
-    const userResult = await query('SELECT id, email, name FROM users WHERE id = ?', [userId]);
+    const userResult = await query('SELECT id, email, name FROM users WHERE email = ?', [email]);
     const user = userResult.rows[0];
-    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN });
+    if (!user) {
+      return res.status(500).json({ error: 'Registration failed, please try again' });
+    }
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
 
     res.cookie('token', token, {
       httpOnly: true,
