@@ -14,7 +14,6 @@ import {
   ChevronRight,
   RefreshCw,
   Globe,
-  Key,
   TestTube,
   List,
   Zap,
@@ -65,6 +64,12 @@ export default function Settings() {
       try {
         const data = await providersAPI.getAll();
         setProviders(data);
+        if (selectedProvider) {
+          const updated = data.find((p: Provider) => p.id === selectedProvider.id);
+          if (updated) {
+            setSelectedProvider(updated);
+          }
+        }
       } catch (error) {
         console.error('Failed to fetch providers:', error);
       }
@@ -72,11 +77,8 @@ export default function Settings() {
     fetchProviders();
   }, []);
 
-  const [lastFetchProviderId, setLastFetchProviderId] = useState<string | null>(null);
-  
   useEffect(() => {
-    if (selectedProvider && selectedProvider.id && selectedProvider.id !== lastFetchProviderId) {
-      setLastFetchProviderId(selectedProvider.id);
+    if (selectedProvider && selectedProvider.id) {
       fetchModels(selectedProvider.id);
       fetchCustomModels();
     }
@@ -260,9 +262,37 @@ export default function Settings() {
     }
   };
 
-  const handleSelectProvider = (provider: Provider) => {
+  const handleSelectProvider = async (provider: Provider) => {
     console.log('handleSelectProvider called with provider:', provider);
-    setSelectedProvider(provider);
+    try {
+      const providersData = await providersAPI.getAll();
+      const updatedProvider = providersData.find((p: Provider) => p.id === provider.id);
+      if (updatedProvider) {
+        setSelectedProvider(updatedProvider);
+        setFormData({
+          provider_name: updatedProvider.provider_name,
+          provider_type: updatedProvider.provider_type,
+          api_key: (updatedProvider as any).api_key || '',
+          base_url: updatedProvider.base_url,
+        });
+      } else {
+        setSelectedProvider(provider);
+        setFormData({
+          provider_name: provider.provider_name,
+          provider_type: provider.provider_type,
+          api_key: (provider as any).api_key || '',
+          base_url: provider.base_url,
+        });
+      }
+    } catch {
+      setSelectedProvider(provider);
+      setFormData({
+        provider_name: provider.provider_name,
+        provider_type: provider.provider_type,
+        api_key: (provider as any).api_key || '',
+        base_url: provider.base_url,
+      });
+    }
     setIsEditing(false);
     setTestResult(null);
     setModelsError(null);
@@ -270,25 +300,20 @@ export default function Settings() {
     setCustomModels([]);
     setCustomModelTestResult(null);
     setShowCustomModelForm(false);
-    setFormData({
-      provider_name: provider.provider_name,
-      provider_type: provider.provider_type,
-      api_key: (provider as any).api_key || '',
-      base_url: provider.base_url,
-    });
   };
 
   const handleCreate = async () => {
     try {
       const newProvider = await providersAPI.create(formData);
       setProviders([...providers, newProvider]);
-      setIsCreating(false);
+      setSelectedProvider(newProvider);
       setFormData({
-        provider_name: '',
-        provider_type: 'openai',
-        api_key: '',
-        base_url: 'https://api.openai.com/v1',
+        provider_name: newProvider.provider_name,
+        provider_type: newProvider.provider_type,
+        api_key: (newProvider as any).api_key || '',
+        base_url: newProvider.base_url,
       });
+      setIsCreating(false);
     } catch (error) {
       console.error('Failed to create provider:', error);
     }
@@ -681,29 +706,7 @@ export default function Settings() {
                   </div>
                 )}
 
-                {models.length > 0 ? (
-                  <div className="apple-card rounded-apple-md p-5">
-                    <div className="flex items-center gap-3 mb-5">
-                      <div className="w-10 h-10 rounded-apple-sm apple-blue/10 flex items-center justify-center">
-                        <Key className="w-5 h-5 text-apple-blue" />
-                      </div>
-                      <span className="font-semibold text-apple-text text-lg">可用模型</span>
-                      <span className="apple-badge-neutral ml-2 px-3 py-1 rounded-full text-sm font-medium">
-                        {models.length}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {models.map((model) => (
-                        <span
-                          key={model.id}
-                          className="apple-badge-neutral px-4 py-2 rounded-full text-sm font-medium"
-                        >
-                          {model.id}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ) : !isRefreshingModels && !modelsError && (
+                {!isRefreshingModels && !modelsError && models.length === 0 && (
                   <div className="apple-card rounded-apple-md p-5 text-center">
                     <p className="text-apple-text-secondary text-sm">暂无模型数据，点击"获取模型列表"按钮获取</p>
                   </div>
