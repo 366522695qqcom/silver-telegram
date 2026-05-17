@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useStore } from '@/store';
 import { providersAPI, customModelsAPI } from '@/services/api';
 import type { Provider, CreateProviderData, TestConnectionResult, CustomModel, Model } from '@/types';
@@ -358,36 +358,14 @@ export default function Settings() {
     m.id.toLowerCase().includes(modelSearchQuery.toLowerCase())
   );
 
-  const handleSelectProvider = async (provider: Provider) => {
-    try {
-      const providersData = await providersAPI.getAll();
-      const updatedProvider = providersData.find((p: Provider) => p.id === provider.id);
-      if (updatedProvider) {
-        setSelectedProvider(updatedProvider);
-        setFormData({
-          provider_name: updatedProvider.provider_name,
-          provider_type: updatedProvider.provider_type,
-          api_key: (updatedProvider as any).api_key || '',
-          base_url: updatedProvider.base_url,
-        });
-      } else {
-        setSelectedProvider(provider);
-        setFormData({
-          provider_name: provider.provider_name,
-          provider_type: provider.provider_type,
-          api_key: (provider as any).api_key || '',
-          base_url: provider.base_url,
-        });
-      }
-    } catch {
-      setSelectedProvider(provider);
-      setFormData({
-        provider_name: provider.provider_name,
-        provider_type: provider.provider_type,
-        api_key: (provider as any).api_key || '',
-        base_url: provider.base_url,
-      });
-    }
+  const handleSelectProvider = (provider: Provider) => {
+    setSelectedProvider(provider);
+    setFormData({
+      provider_name: provider.provider_name,
+      provider_type: provider.provider_type,
+      api_key: (provider as any).api_key || '',
+      base_url: provider.base_url,
+    });
     setIsEditing(false);
     setTestResult(null);
     setCustomModels([]);
@@ -782,7 +760,7 @@ export default function Settings() {
   const renderRightPanel = () => {
     if (isCreating) {
       return (
-        <div className="flex-1 p-8 overflow-y-auto animate-apple-slide-up min-h-full">
+        <div className="flex-1 p-8 overflow-y-auto min-h-full">
           <div className="mb-8">
             <h2 className="text-2xl font-semibold text-apple-text mb-2">创建提供商</h2>
             <p className="text-apple-text-secondary">配置新的 AI 服务提供商</p>
@@ -878,7 +856,7 @@ export default function Settings() {
           
           <div className="flex-1 overflow-y-auto">
             {isEditing ? (
-              <div className="p-8 animate-apple-slide-up">
+              <div className="p-8">
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-apple-text">编辑提供商</h3>
                   <p className="text-sm text-apple-text-secondary mt-1">修改提供商配置信息</p>
@@ -951,7 +929,7 @@ export default function Settings() {
                 </div>
               </div>
             ) : (
-              <div className="p-8 space-y-6 animate-apple-slide-up">
+              <div className="p-8 space-y-6">
                 <div className="apple-card rounded-apple-md p-5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -1250,7 +1228,7 @@ export default function Settings() {
     } else {
       return (
         <div className="flex-1 flex items-center justify-center p-8">
-          <div className="text-center animate-apple-slide-up">
+          <div className="text-center">
             <div className="w-24 h-24 rounded-full bg-apple-gray-bg flex items-center justify-center mx-auto mb-8">
               <Globe className="w-12 h-12 text-apple-text-secondary opacity-50" />
             </div>
@@ -1273,7 +1251,7 @@ export default function Settings() {
 
   return (
     <>
-        <div className="min-h-[calc(100vh-6rem)] bg-apple-gray-bg animate-apple-slide-up">
+        <div className="min-h-[calc(100vh-6rem)] bg-apple-gray-bg">
           <div className="flex gap-4 max-w-7xl mx-auto py-6 px-6">
         <div className="w-80 flex-shrink-0 bg-white rounded-apple-lg shadow-apple-card flex flex-col" style={{ maxHeight: 'calc(100vh - 8rem)' }}>
           <div className="p-5 border-b apple-border-light flex items-center justify-between">
