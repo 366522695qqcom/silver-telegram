@@ -41,6 +41,14 @@ router.post('/', authenticateToken, async (req, res) => {
       }
     }
 
+    const existingModel = await query(
+      'SELECT cm.*, p.provider_name FROM custom_models cm LEFT JOIN providers p ON cm.provider_id = p.id WHERE cm.user_id = ? AND cm.provider_id IS ? AND cm.model_id = ?',
+      [req.user.id, provider_id || null, model_id]
+    );
+    if (existingModel.rows.length > 0) {
+      return res.json(existingModel.rows[0]);
+    }
+
     const capsValue = typeof capabilities === 'string' ? capabilities : JSON.stringify(capabilities || {});
     const id = uuidv4();
     await run(
@@ -85,6 +93,15 @@ router.post('/batch', authenticateToken, async (req, res) => {
           if (!finalBaseUrl) finalBaseUrl = provider.base_url;
           if (!finalApiKey) finalApiKey = provider.api_key;
         }
+      }
+
+      const existingModel = await query(
+        'SELECT cm.*, p.provider_name FROM custom_models cm LEFT JOIN providers p ON cm.provider_id = p.id WHERE cm.user_id = ? AND cm.provider_id IS ? AND cm.model_id = ?',
+        [req.user.id, provider_id || null, model_id]
+      );
+      if (existingModel.rows.length > 0) {
+        results.push(existingModel.rows[0]);
+        continue;
       }
 
       const capsValue = typeof capabilities === 'string' ? capabilities : JSON.stringify(capabilities || {});

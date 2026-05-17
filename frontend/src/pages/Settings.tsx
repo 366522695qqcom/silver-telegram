@@ -115,6 +115,8 @@ export default function Settings() {
   const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set());
   const [isFetchingModels, setIsFetchingModels] = useState(false);
   const [modelSearchQuery, setModelSearchQuery] = useState('');
+  const [isSavingModel, setIsSavingModel] = useState(false);
+  const [isAddingModels, setIsAddingModels] = useState(false);
 
   const [formData, setFormData] = useState<CreateProviderData>({
     provider_name: '',
@@ -192,6 +194,7 @@ export default function Settings() {
 
   const handleSaveModel = async () => {
     if (!modelForm.model_id) return;
+    setIsSavingModel(true);
     try {
       if (modelEditId) {
         const updated = await customModelsAPI.update(modelEditId, {
@@ -218,7 +221,11 @@ export default function Settings() {
       closeModelModal();
     } catch (error) {
       console.error('Failed to save model:', error);
+      closeModelModal();
+      fetchCustomModels();
       alert('保存模型失败: ' + (error as Error).message);
+    } finally {
+      setIsSavingModel(false);
     }
   };
 
@@ -321,6 +328,7 @@ export default function Settings() {
   const handleAddSelectedModels = async () => {
     if (selectedModels.size === 0 || !selectedProvider) return;
     setShowModelSelector(false);
+    setIsAddingModels(true);
     const modelsToAdd = availableModels.filter(m => selectedModels.has(m.id));
     const createData = modelsToAdd.map(m => {
       const inferred = inferModelInfo(m.id);
@@ -341,6 +349,8 @@ export default function Settings() {
       console.error('Failed to add models:', error);
       alert('添加模型失败: ' + (error as Error).message);
       fetchCustomModels();
+    } finally {
+      setIsAddingModels(false);
     }
   };
 
@@ -643,10 +653,11 @@ export default function Settings() {
             )}
             <button
               onClick={handleSaveModel}
-              disabled={!modelForm.model_id}
-              className="apple-btn-primary px-5 py-2.5 ml-auto disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!modelForm.model_id || isSavingModel}
+              className="apple-btn-primary px-5 py-2.5 ml-auto disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
             >
-              保存
+              {isSavingModel ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
+              {isSavingModel ? '保存中...' : '保存'}
             </button>
           </div>
         </div>
@@ -755,10 +766,11 @@ export default function Settings() {
               </button>
               <button
                 onClick={handleAddSelectedModels}
-                disabled={selectedModels.size === 0}
-                className="apple-btn-primary px-5 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={selectedModels.size === 0 || isAddingModels}
+                className="apple-btn-primary px-5 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
               >
-                添加选中模型
+                {isAddingModels ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
+                {isAddingModels ? '添加中...' : '添加选中模型'}
               </button>
             </div>
           </div>
