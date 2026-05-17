@@ -82,19 +82,33 @@ router.put('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/', authenticateToken, async (req, res) => {
   try {
-    const existing = await query(
-      'SELECT id FROM custom_models WHERE id = ? AND user_id = ?',
-      [req.params.id, req.user.id]
-    );
-    if (existing.rows.length === 0) {
-      return res.status(404).json({ error: 'Custom model not found' });
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'ids array is required' });
     }
 
+    const placeholders = ids.map(() => '?').join(',');
+    await run(
+      `DELETE FROM custom_models WHERE id IN (${placeholders}) AND user_id = ?`,
+      [...ids, req.user.id]
+    );
+
+    res.json({ message: 'Custom models deleted successfully', deleted_count: ids.length });
+  } catch (error) {
+    console.error('Batch delete error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.delete('/:id', authenticateToken, async (req, res) => {
+  try {
     await run('DELETE FROM custom_models WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
     res.json({ message: 'Custom model deleted successfully' });
   } catch (error) {
+    console.error('Delete custom model error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

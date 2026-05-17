@@ -123,11 +123,13 @@ export default function Settings() {
   };
 
   const handleDeleteCustomModel = async (id: string) => {
+    const originalModels = [...customModels];
+    setCustomModels(customModels.filter(m => m.id !== id));
     try {
       await customModelsAPI.delete(id);
-      setCustomModels(customModels.filter(m => m.id !== id));
     } catch (error) {
       console.error('Failed to delete custom model:', error);
+      setCustomModels(originalModels);
     }
   };
 
@@ -204,18 +206,20 @@ export default function Settings() {
 
   const handleResetCustomModels = async () => {
     if (customModels.length === 0) return;
-    
+
     if (!confirm('确定要清空所有自定义模型吗？此操作不可撤销。')) {
       return;
     }
-    
+
+    const originalModels = [...customModels];
+    const modelIds = customModels.map(cm => cm.id);
+    setCustomModels([]);
+
     try {
-      for (const cm of customModels) {
-        await customModelsAPI.delete(cm.id);
-      }
-      setCustomModels([]);
+      await customModelsAPI.deleteAll(modelIds);
     } catch (error) {
       console.error('Failed to reset models:', error);
+      setCustomModels(originalModels);
       alert('重置失败: ' + (error as Error).message);
     }
   };

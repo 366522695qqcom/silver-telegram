@@ -15,29 +15,43 @@ const request = async <T>(url: string, options: RequestInit = {}): Promise<T> =>
     Object.assign(headers, options.headers);
   }
 
-  const response = await fetch(`/api${url}`, {
-    ...options,
-    headers,
-    credentials: 'include',
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-  if (!response.ok) {
-    const text = await response.text();
-    let errorMessage = 'Request failed';
-    try {
-      const error = JSON.parse(text);
-      errorMessage = error.error || errorMessage;
-    } catch (e) {
-      errorMessage = text || errorMessage;
+  try {
+    const response = await fetch(`/api${url}`, {
+      ...options,
+      headers,
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const text = await response.text();
+      let errorMessage = 'Request failed';
+      try {
+        const error = JSON.parse(text);
+        errorMessage = error.error || errorMessage;
+      } catch (e) {
+        errorMessage = text || errorMessage;
+      }
+      throw new Error(errorMessage);
     }
-    throw new Error(errorMessage);
-  }
 
-  const text = await response.text();
-  if (!text) {
-    return {} as T;
+    const text = await response.text();
+    if (!text) {
+      return {} as T;
+    }
+    return JSON.parse(text);
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('请求超时，请检查网络连接');
+    }
+    throw error;
   }
-  return JSON.parse(text);
 };
 
 export const authAPI = {
@@ -440,6 +454,12 @@ export const customModelsAPI = {
   },
   delete: async (id: string): Promise<void> => {
     return request(`/custom-models/${id}`, { method: 'DELETE' });
+  },
+  deleteAll: async (ids: string[]): Promise<void> => {
+    return request('/custom-models', {
+      method: 'DELETE',
+      body: JSON.stringify({ ids }),
+    });
   },
   toggleStatus: async (id: string): Promise<CustomModel> => {
     return request(`/custom-models/${id}/toggle`, { method: 'POST' });
