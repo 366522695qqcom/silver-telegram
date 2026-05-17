@@ -167,6 +167,10 @@ const initializeDatabase = async () => {
       provider_id TEXT,
       model_name TEXT NOT NULL,
       model_id TEXT NOT NULL,
+      model_type TEXT DEFAULT 'chat',
+      capabilities TEXT DEFAULT '{}',
+      context_window INTEGER,
+      max_output_tokens INTEGER,
       base_url TEXT,
       api_key TEXT,
       enabled INTEGER DEFAULT 1,
@@ -178,6 +182,17 @@ const initializeDatabase = async () => {
     for (const stmt of statements) {
       await execute(stmt);
     }
+
+    const alterStatements = [
+      'ALTER TABLE custom_models ADD COLUMN model_type TEXT DEFAULT \'chat\'',
+      'ALTER TABLE custom_models ADD COLUMN capabilities TEXT DEFAULT \'{}\'',
+      'ALTER TABLE custom_models ADD COLUMN context_window INTEGER',
+      'ALTER TABLE custom_models ADD COLUMN max_output_tokens INTEGER',
+    ];
+    for (const stmt of alterStatements) {
+      try { await execute(stmt); } catch (e) {}
+    }
+
     console.log('Database tables initialized successfully');
   } catch (error) {
     const errorType = classifyError(error);

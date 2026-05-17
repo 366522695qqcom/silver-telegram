@@ -20,7 +20,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
 router.post('/', authenticateToken, async (req, res) => {
   try {
-    const { provider_id, model_name, model_id, base_url, api_key } = req.body;
+    const { provider_id, model_name, model_id, model_type, capabilities, context_window, max_output_tokens, base_url, api_key } = req.body;
 
     if (!model_name || !model_id) {
       return res.status(400).json({ error: 'model_name and model_id are required' });
@@ -43,8 +43,8 @@ router.post('/', authenticateToken, async (req, res) => {
 
     const id = uuidv4();
     await run(
-      'INSERT INTO custom_models (id, user_id, provider_id, model_name, model_id, base_url, api_key) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id, req.user.id, provider_id || null, model_name, model_id, finalBaseUrl, finalApiKey]
+      'INSERT INTO custom_models (id, user_id, provider_id, model_name, model_id, model_type, capabilities, context_window, max_output_tokens, base_url, api_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, req.user.id, provider_id || null, model_name, model_id, model_type || 'chat', capabilities || '{}', context_window || null, max_output_tokens || null, finalBaseUrl, finalApiKey]
     );
 
     const result = await query(
@@ -68,7 +68,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Custom model not found' });
     }
 
-    const { provider_id, model_name, model_id, base_url, api_key, enabled } = req.body;
+    const { provider_id, model_name, model_id, model_type, capabilities, context_window, max_output_tokens, base_url, api_key, enabled } = req.body;
     const updateFields = [];
     const updateValues = [];
 
@@ -78,6 +78,10 @@ router.put('/:id', authenticateToken, async (req, res) => {
     if (base_url !== undefined) { updateFields.push('base_url = ?'); updateValues.push(base_url || null); }
     if (api_key !== undefined) { updateFields.push('api_key = ?'); updateValues.push(api_key || null); }
     if (enabled !== undefined) { updateFields.push('enabled = ?'); updateValues.push(enabled ? 1 : 0); }
+    if (model_type !== undefined) { updateFields.push('model_type = ?'); updateValues.push(model_type); }
+    if (capabilities !== undefined) { updateFields.push('capabilities = ?'); updateValues.push(capabilities); }
+    if (context_window !== undefined) { updateFields.push('context_window = ?'); updateValues.push(context_window || null); }
+    if (max_output_tokens !== undefined) { updateFields.push('max_output_tokens = ?'); updateValues.push(max_output_tokens || null); }
 
     if (updateFields.length > 0) {
       updateValues.push(req.params.id);
