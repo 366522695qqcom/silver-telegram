@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { query, run } = require('../utils/db');
 const { authenticateToken } = require('../middleware/auth');
+const providerService = require('../services/providerService');
 
 const router = express.Router();
 
@@ -25,10 +26,25 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'model_name and model_id are required' });
     }
 
+    let finalBaseUrl = base_url || null;
+    let finalApiKey = api_key || null;
+
+    if (provider_id) {
+      const providerResult = await query(
+        'SELECT base_url, api_key FROM providers WHERE id = ? AND user_id = ?',
+        [provider_id, req.user.id]
+      );
+      if (providerResult.rows.length > 0) {
+        const provider = providerResult.rows[0];
+        if (!finalBaseUrl) finalBaseUrl = provider.base_url;
+        if (!finalApiKey) finalApiKey = provider.api_key;
+      }
+    }
+
     const id = uuidv4();
     await run(
       'INSERT INTO custom_models (id, user_id, provider_id, model_name, model_id, base_url, api_key) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id, req.user.id, provider_id || null, model_name, model_id, base_url || null, api_key || null]
+      [id, req.user.id, provider_id || null, model_name, model_id, finalBaseUrl, finalApiKey]
     );
 
     const result = await query(
@@ -151,60 +167,90 @@ router.post('/:id/test', authenticateToken, async (req, res) => {
     }
 
     const model = result.rows[0];
-    const testUrl = model.base_url;
-    const testKey = model.api_key;
 
-    if (!testUrl) {
+    let baseUrl = model.base_url;
+    let apiKey = model.api_key;
+    let providerType = 'openai';
+
+    if (model.provider_id) {
+      const providerResult = await query(
+        'SELECT base_url, api_key, provider_type FROM providers WHERE id = ?',
+        [model.provider_id]
+      );
+      if (providerResult.rows.length > 0) {
+        const provider = providerResult.rows[0];
+        if (!baseUrl) baseUrl = provider.base_url;
+        if (!apiKey) apiKey = provider.api_key;
+        providerType = provider.provider_type || 'openai';
+      }
+    }
+
+    if (!baseUrl) {
       return res.json({
         success: false,
         message: 'No base URL configured for connectivity test',
       });
     }
 
+    const headers = providerService.buildHeaders(providerType, apiKey || '');
+
+    let endpoint = baseUrl.replace(/\/+$/, '');
+    let body;
+
+    if (providerType === 'anthropic') {
+      endpoint += '/messages';
+      body = JSON.stringify({
+        model: model.model_id,
+        messages: [{ role: 'user', content: 'Hi' }],
+        max_tokens: 5,
+      });
+    } else {
+      endpoint += '/chat/completions';
+      body = JSON.stringify({
+        model: model.model_id,
+        messages: [{ role: 'user', content: 'Hi' }],
+        max_tokens: 5,
+      });
+    }
+
+    const startTime = Date.now();
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10000);
+    const timer = setTimeout(() => controller.abort(), 15000);
 
     try {
-      const modelsUrl = testUrl.replace(/\/+$/, '') + (testUrl.endsWith('/v1') ? '/models' : '/v1/models');
-      const response = await fetch(modelsUrl, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${testKey || ''}`,
-          'Content-Type': 'application/json',
-        },
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body,
         signal: controller.signal,
       });
 
       clearTimeout(timer);
+      const latency = Date.now() - startTime;
 
       if (response.ok) {
-        const data = await response.json();
-        const modelIds = data.data ? data.data.map(m => m.id) : [];
-        const hasModel = modelIds.some(id => id === model.model_id || id.includes(model.model_id));
-
         res.json({
           success: true,
-          status: response.status,
-          message: hasModel
-            ? `Connected successfully. Model "${model.model_id}" found.`
-            : `Connected successfully but model "${model.model_id}" not found in provider's model list.`,
-          availableModels: modelIds.slice(0, 20),
+          message: `Chat completion test successful for model "${model.model_id}"`,
+          latency_ms: latency,
         });
       } else {
         const text = await response.text().catch(() => '');
         res.json({
           success: false,
-          status: response.status,
-          message: `Connection failed: HTTP ${response.status} - ${text.substring(0, 200)}`,
+          message: `Chat completion test failed: HTTP ${response.status} - ${text.substring(0, 200)}`,
+          latency_ms: latency,
         });
       }
     } catch (fetchError) {
       clearTimeout(timer);
+      const latency = Date.now() - startTime;
       res.json({
         success: false,
         message: fetchError.name === 'AbortError'
-          ? 'Connection timeout (10s)'
+          ? 'Connection timeout (15s)'
           : `Connection error: ${fetchError.message}`,
+        latency_ms: latency,
       });
     }
   } catch (error) {

@@ -103,7 +103,7 @@ export interface TestConnectionResult {
   success: boolean;
   status?: number;
   message: string;
-  availableModels?: string[];
+  latency_ms?: number;
 }
 
 export interface CustomModel {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '@/store';
 import { providersAPI, customModelsAPI } from '@/services/api';
-import type { Provider, CreateProviderData, Model, TestConnectionResult, CustomModel, CreateCustomModelData } from '@/types';
+import type { Provider, CreateProviderData, TestConnectionResult, CustomModel } from '@/types';
 import { 
   Plus, 
   Edit, 
@@ -15,42 +15,28 @@ import {
   RefreshCw,
   Globe,
   TestTube,
-  List,
   Zap,
   Wifi,
-  Download,
-  RotateCcw,
-  X,
-  Check
+  RotateCcw
 } from 'lucide-react';
 
 export default function Settings() {
   const { providers, setProviders } = useStore();
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
-  const [models, setModels] = useState<Model[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [testResult, setTestResult] = useState<TestConnectionResult | null>(null);
   const [isTesting, setIsTesting] = useState(false);
-  const [isRefreshingModels, setIsRefreshingModels] = useState(false);
-  const [modelsError, setModelsError] = useState<string | null>(null);
 
   const [customModels, setCustomModels] = useState<CustomModel[]>([]);
   const [showCustomModelForm, setShowCustomModelForm] = useState(false);
-  const [customModelForm, setCustomModelForm] = useState<CreateCustomModelData>({
+  const [customModelForm, setCustomModelForm] = useState<{ model_name: string; model_id: string }>({
     model_name: '',
     model_id: '',
-    base_url: '',
-    api_key: '',
   });
   const [customModelTestResult, setCustomModelTestResult] = useState<TestConnectionResult | null>(null);
   const [customModelTestLoading, setCustomModelTestLoading] = useState<string | null>(null);
   const [customModelEditId, setCustomModelEditId] = useState<string | null>(null);
-  
-  const [showModelSelector, setShowModelSelector] = useState(false);
-  const [availableModels, setAvailableModels] = useState<Model[]>([]);
-  const [selectedModels, setSelectedModels] = useState<string[]>([]);
-  const [isFetchingModels, setIsFetchingModels] = useState(false);
 
   const [formData, setFormData] = useState<CreateProviderData>({
     provider_name: '',
@@ -79,7 +65,6 @@ export default function Settings() {
 
   useEffect(() => {
     if (selectedProvider && selectedProvider.id) {
-      fetchModels(selectedProvider.id);
       fetchCustomModels();
     }
   }, [selectedProvider?.id]);
@@ -97,13 +82,14 @@ export default function Settings() {
     if (!customModelForm.model_name || !customModelForm.model_id) return;
     try {
       const data = {
-        ...customModelForm,
         provider_id: selectedProvider?.id || undefined,
+        model_name: customModelForm.model_name,
+        model_id: customModelForm.model_id,
       };
       const newModel = await customModelsAPI.create(data);
       setCustomModels([newModel, ...customModels]);
       setShowCustomModelForm(false);
-      setCustomModelForm({ model_name: '', model_id: '', base_url: '', api_key: '' });
+      setCustomModelForm({ model_name: '', model_id: '' });
     } catch (error) {
       console.error('Failed to create custom model:', error);
     }
@@ -112,11 +98,14 @@ export default function Settings() {
   const handleUpdateCustomModel = async () => {
     if (!customModelEditId || !customModelForm.model_name || !customModelForm.model_id) return;
     try {
-      const updated = await customModelsAPI.update(customModelEditId, customModelForm);
+      const updated = await customModelsAPI.update(customModelEditId, {
+        model_name: customModelForm.model_name,
+        model_id: customModelForm.model_id,
+      });
       setCustomModels(customModels.map(m => m.id === updated.id ? updated : m));
       setCustomModelEditId(null);
       setShowCustomModelForm(false);
-      setCustomModelForm({ model_name: '', model_id: '', base_url: '', api_key: '' });
+      setCustomModelForm({ model_name: '', model_id: '' });
     } catch (error) {
       console.error('Failed to update custom model:', error);
     }
@@ -155,55 +144,6 @@ export default function Settings() {
     }
   };
 
-  const handleFetchAndSelectModels = async () => {
-    if (!selectedProvider) return;
-    
-    setIsFetchingModels(true);
-    try {
-      const data = await providersAPI.getModels(selectedProvider.id);
-      if (data && data.models && data.models.length > 0) {
-        setAvailableModels(data.models);
-        setSelectedModels([]);
-        setShowModelSelector(true);
-      } else {
-        alert('未能获取到可用模型');
-      }
-    } catch (error) {
-      console.error('Failed to fetch models:', error);
-      alert('获取模型失败: ' + (error as Error).message);
-    } finally {
-      setIsFetchingModels(false);
-    }
-  };
-
-  const handleAddSelectedModels = async () => {
-    if (selectedModels.length === 0) {
-      setShowModelSelector(false);
-      return;
-    }
-    
-    try {
-      for (const modelId of selectedModels) {
-        const model = availableModels.find(m => m.id === modelId);
-        if (model && !customModels.some(cm => cm.model_id === modelId)) {
-          const newModel: CreateCustomModelData = {
-            model_name: model.name || model.id,
-            model_id: model.id,
-            base_url: selectedProvider?.base_url || '',
-            api_key: '',
-          };
-          await customModelsAPI.create(newModel);
-        }
-      }
-      await fetchCustomModels();
-      setShowModelSelector(false);
-      setSelectedModels([]);
-    } catch (error) {
-      console.error('Failed to add models:', error);
-      alert('添加模型失败: ' + (error as Error).message);
-    }
-  };
-
   const handleResetCustomModels = async () => {
     if (customModels.length === 0) return;
 
@@ -221,48 +161,6 @@ export default function Settings() {
       console.error('Failed to reset models:', error);
       setCustomModels(originalModels);
       alert('重置失败: ' + (error as Error).message);
-    }
-  };
-
-  const toggleModelSelection = (modelId: string) => {
-    setSelectedModels(prev => 
-      prev.includes(modelId) 
-        ? prev.filter(id => id !== modelId)
-        : [...prev, modelId]
-    );
-  };
-
-  const selectAllModels = () => {
-    setSelectedModels(availableModels.map(m => m.id));
-  };
-
-  const deselectAllModels = () => {
-    setSelectedModels([]);
-  };
-
-  const fetchModels = async (providerId: string) => {
-    if (isRefreshingModels) return;
-    
-    setIsRefreshingModels(true);
-    setModelsError(null);
-    try {
-      const data = await providersAPI.getModels(providerId);
-      if (data && data.models) {
-        setModels(data.models);
-      } else if (Array.isArray(data)) {
-        setModels(data);
-      } else {
-        setModels([]);
-      }
-      if (data && data.error) {
-        setModelsError(data.error);
-      }
-    } catch (error) {
-      console.error('Failed to fetch models:', error);
-      setModels([]);
-      setModelsError((error as Error).message || '获取模型列表失败');
-    } finally {
-      setIsRefreshingModels(false);
     }
   };
 
@@ -299,8 +197,6 @@ export default function Settings() {
     }
     setIsEditing(false);
     setTestResult(null);
-    setModelsError(null);
-    setModels([]);
     setCustomModels([]);
     setCustomModelTestResult(null);
     setShowCustomModelForm(false);
@@ -341,7 +237,6 @@ export default function Settings() {
       await providersAPI.delete(selectedProvider.id);
       setProviders(providers.filter(p => p.id !== selectedProvider.id));
       setSelectedProvider(null);
-      setModels([]);
     } catch (error) {
       console.error('Failed to delete provider:', error);
     }
@@ -362,7 +257,6 @@ export default function Settings() {
   const handleTestConnection = async () => {
     if (!selectedProvider) return;
     setIsTesting(true);
-    setModelsError(null);
     try {
       const result = await providersAPI.testConnection(selectedProvider.id);
       setTestResult(result);
@@ -633,42 +527,23 @@ export default function Settings() {
                   </div>
                 </div>
 
-                <div className="flex gap-4">
-                  <button
-                    onClick={handleTestConnection}
-                    disabled={isTesting}
-                    className="apple-btn-primary flex-1 py-4 flex items-center justify-center gap-2"
-                  >
-                    {isTesting ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        <span>测试中...</span>
-                      </>
-                    ) : (
-                      <>
-                        <TestTube className="w-4 h-4" />
-                        <span>测试连接</span>
-                      </>
-                    )}
-                  </button>
-                  <button
-                    onClick={() => fetchModels(selectedProvider.id)}
-                    disabled={isRefreshingModels}
-                    className="apple-btn-secondary flex-1 py-4 flex items-center justify-center gap-2"
-                  >
-                    {isRefreshingModels ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        <span>刷新中...</span>
-                      </>
-                    ) : (
-                      <>
-                        <List className="w-4 h-4" />
-                        <span>获取模型列表</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+                <button
+                  onClick={handleTestConnection}
+                  disabled={isTesting}
+                  className="apple-btn-primary w-full py-4 flex items-center justify-center gap-2"
+                >
+                  {isTesting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>测试中...</span>
+                    </>
+                  ) : (
+                    <>
+                      <TestTube className="w-4 h-4" />
+                      <span>测试连接</span>
+                    </>
+                  )}
+                </button>
 
                 {testResult && (
                   <div className={`apple-card rounded-apple-md p-5 ${
@@ -698,24 +573,6 @@ export default function Settings() {
                   </div>
                 )}
 
-                {modelsError && (
-                  <div className="apple-card rounded-apple-md p-5 apple-badge-error border-2 border-red-200">
-                    <div className="flex items-center gap-3">
-                      <XCircle className="w-6 h-6" />
-                      <div>
-                        <p className="font-semibold text-red-800">获取模型失败</p>
-                        <p className="text-sm mt-1 text-red-600">{modelsError}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {!isRefreshingModels && !modelsError && models.length === 0 && (
-                  <div className="apple-card rounded-apple-md p-5 text-center">
-                    <p className="text-apple-text-secondary text-sm">暂无模型数据，点击"获取模型列表"按钮获取</p>
-                  </div>
-                )}
-
                 <div className="apple-card rounded-apple-md">
                   <div className="flex items-center justify-between px-5 py-3 border-b apple-border-light">
                     <div className="flex items-center gap-3">
@@ -729,7 +586,7 @@ export default function Settings() {
                         onClick={() => {
                           setShowCustomModelForm(!showCustomModelForm);
                           setCustomModelEditId(null);
-                          setCustomModelForm({ model_name: '', model_id: '', base_url: '', api_key: '' });
+                          setCustomModelForm({ model_name: '', model_id: '' });
                         }}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-apple-sm bg-purple-600 text-white text-sm font-medium hover:bg-purple-700 transition-colors"
                         title="新建模型"
@@ -745,19 +602,6 @@ export default function Settings() {
                       >
                         <RotateCcw className="w-4 h-4" />
                         <span>重置</span>
-                      </button>
-                      <button
-                        onClick={handleFetchAndSelectModels}
-                        disabled={!selectedProvider || isFetchingModels}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-apple-sm border border-apple-border text-apple-text-secondary text-sm font-medium hover:bg-apple-gray-bg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="从提供商获取模型"
-                      >
-                        {isFetchingModels ? (
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Download className="w-4 h-4" />
-                        )}
-                        <span>获取</span>
                       </button>
                     </div>
                   </div>
@@ -787,28 +631,6 @@ export default function Settings() {
                           />
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-3 mb-3">
-                        <div>
-                          <label className="block text-xs font-medium text-apple-text-secondary mb-1">Base URL (可选)</label>
-                          <input
-                            type="text"
-                            value={customModelForm.base_url || ''}
-                            onChange={(e) => setCustomModelForm({ ...customModelForm, base_url: e.target.value })}
-                            placeholder="如: https://api.openai.com/v1"
-                            className="apple-input w-full px-3 py-2 text-sm rounded-apple-sm border border-apple-border focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-apple-text-secondary mb-1">API Key (可选)</label>
-                          <input
-                            type="password"
-                            value={customModelForm.api_key || ''}
-                            onChange={(e) => setCustomModelForm({ ...customModelForm, api_key: e.target.value })}
-                            placeholder="用于测试连通性"
-                            className="apple-input w-full px-3 py-2 text-sm rounded-apple-sm border border-apple-border focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
-                          />
-                        </div>
-                      </div>
                       <div className="flex gap-2">
                         <button
                           onClick={customModelEditId ? handleUpdateCustomModel : handleCreateCustomModel}
@@ -821,7 +643,7 @@ export default function Settings() {
                           onClick={() => {
                             setShowCustomModelForm(false);
                             setCustomModelEditId(null);
-                            setCustomModelForm({ model_name: '', model_id: '', base_url: '', api_key: '' });
+                            setCustomModelForm({ model_name: '', model_id: '' });
                           }}
                           className="px-4 py-2 text-sm font-medium rounded-apple-sm border border-apple-border text-apple-text-secondary hover:bg-apple-gray-bg transition-colors"
                         >
@@ -849,14 +671,10 @@ export default function Settings() {
                           </p>
                           <p className={`text-xs mt-0.5 ${customModelTestResult.success ? 'text-green-600' : 'text-red-600'}`}>
                             {customModelTestResult.message}
+                            {customModelTestResult.latency_ms !== undefined && (
+                              <span className="ml-1">({customModelTestResult.latency_ms}ms)</span>
+                            )}
                           </p>
-                          {customModelTestResult.availableModels && customModelTestResult.availableModels.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {customModelTestResult.availableModels.map(m => (
-                                <span key={m} className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">{m}</span>
-                              ))}
-                            </div>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -886,9 +704,6 @@ export default function Settings() {
                             <div className="min-w-0">
                               <p className="text-sm font-medium text-apple-text truncate">{cm.model_name}</p>
                               <p className="text-xs text-apple-text-secondary truncate">{cm.model_id}</p>
-                              {cm.base_url && (
-                                <p className="text-xs text-apple-text-secondary/60 truncate">{cm.base_url}</p>
-                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-1 flex-shrink-0">
@@ -911,8 +726,6 @@ export default function Settings() {
                                 setCustomModelForm({
                                   model_name: cm.model_name,
                                   model_id: cm.model_id,
-                                  base_url: cm.base_url || '',
-                                  api_key: cm.api_key || '',
                                 });
                               }}
                               className="p-2 rounded-apple-sm hover:bg-apple-gray-bg transition-colors"
@@ -934,7 +747,7 @@ export default function Settings() {
                   ) : !showCustomModelForm && (
                     <div className="text-center py-8">
                       <p className="text-sm text-apple-text-secondary">暂无可用模型</p>
-                      <p className="text-xs text-apple-text-secondary/60 mt-1">点击上方按钮添加或获取模型</p>
+                      <p className="text-xs text-apple-text-secondary/60 mt-1">点击上方按钮添加模型</p>
                     </div>
                   )}
                   </div>
@@ -1054,110 +867,6 @@ export default function Settings() {
       </div>
     </div>
 
-    {showModelSelector && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-        <div 
-          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-          onClick={() => setShowModelSelector(false)}
-        />
-        <div className="relative bg-white rounded-apple-xl shadow-apple-modal w-full max-w-lg overflow-hidden animate-scale-in">
-          <div className="flex items-center justify-between px-6 py-4 border-b apple-border-light">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-apple-sm bg-purple-50 flex items-center justify-center">
-                <Download className="w-4 h-4 text-purple-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-apple-text">选择模型</h3>
-                <p className="text-xs text-apple-text-secondary mt-0.5">从提供商获取到 {availableModels.length} 个模型</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowModelSelector(false)}
-              className="p-2 rounded-apple-sm hover:bg-apple-gray-bg transition-colors"
-            >
-              <X className="w-5 h-5 text-apple-text-secondary" />
-            </button>
-          </div>
-          
-          <div className="flex items-center justify-between px-6 py-3 bg-apple-gray-bg/50">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={selectAllModels}
-                className="text-xs text-apple-text-secondary hover:text-apple-text transition-colors"
-              >
-                全选
-              </button>
-              <span className="text-apple-text-secondary/50">|</span>
-              <button
-                onClick={deselectAllModels}
-                className="text-xs text-apple-text-secondary hover:text-apple-text transition-colors"
-              >
-                取消全选
-              </button>
-            </div>
-            <span className="text-xs text-apple-text-secondary">
-              已选择 {selectedModels.length} 个
-            </span>
-          </div>
-          
-          <div className="max-h-[400px] overflow-y-auto p-4 space-y-2">
-            {availableModels.map((model) => {
-              const isSelected = selectedModels.includes(model.id);
-              const alreadyExists = customModels.some(cm => cm.model_id === model.id);
-              
-              return (
-                <div
-                  key={model.id}
-                  onClick={() => !alreadyExists && toggleModelSelection(model.id)}
-                  className={`flex items-center gap-3 p-3 rounded-apple-sm border transition-all cursor-pointer ${
-                    isSelected 
-                      ? 'border-purple-500 bg-purple-50' 
-                      : alreadyExists
-                        ? 'border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed'
-                        : 'border-apple-border hover:border-purple-200 hover:bg-purple-50/50'
-                  }`}
-                >
-                  <div className={`w-5 h-5 rounded-sm border-2 flex items-center justify-center flex-shrink-0 ${
-                    isSelected 
-                      ? 'bg-purple-600 border-purple-600' 
-                      : alreadyExists
-                        ? 'bg-gray-200 border-gray-300'
-                        : 'border-apple-border'
-                  }`}>
-                    {isSelected && <Check className="w-3 h-3 text-white" />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-apple-text truncate">{model.name || model.id}</p>
-                    <p className="text-xs text-apple-text-secondary">{model.id}</p>
-                  </div>
-                  {alreadyExists && (
-                    <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-500 flex-shrink-0">
-                      已存在
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          
-          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t apple-border-light">
-            <button
-              onClick={() => setShowModelSelector(false)}
-              className="px-4 py-2 text-sm font-medium text-apple-text-secondary hover:text-apple-text transition-colors"
-            >
-              取消
-            </button>
-            <button
-              onClick={handleAddSelectedModels}
-              disabled={selectedModels.length === 0}
-              className="px-4 py-2 text-sm font-medium bg-purple-600 text-white rounded-apple-sm hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              添加选中 ({selectedModels.length})
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
     </>
   );
 }
