@@ -1,7 +1,7 @@
 import Cookies from 'js-cookie';
 import type { User, Provider, ApiKey, Request, AuditLog, ModelListResponse, LoginData, RegisterData, CreateProviderData, CreateApiKeyData, TestConnectionResult, CustomModel, CreateCustomModelData } from '@/types';
 
-const request = async <T>(url: string, options: RequestInit = {}): Promise<T> => {
+const request = async <T>(url: string, options: RequestInit = {}, timeout: number = 8000): Promise<T> => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
@@ -16,7 +16,7 @@ const request = async <T>(url: string, options: RequestInit = {}): Promise<T> =>
   }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
     const response = await fetch(`/api${url}`, {
@@ -444,7 +444,7 @@ export const customModelsAPI = {
     return request('/custom-models', {
       method: 'POST',
       body: JSON.stringify(data),
-    });
+    }, 30000);
   },
   update: async (id: string, data: Partial<CreateCustomModelData & { enabled: boolean }>): Promise<CustomModel> => {
     return request(`/custom-models/${id}`, {
@@ -464,7 +464,13 @@ export const customModelsAPI = {
   toggleStatus: async (id: string): Promise<CustomModel> => {
     return request(`/custom-models/${id}/toggle`, { method: 'POST' });
   },
-  testConnection: async (id: string): Promise<{ success: boolean; status?: number; message: string; availableModels?: string[] }> => {
+  testConnection: async (id: string): Promise<TestConnectionResult> => {
     return request(`/custom-models/${id}/test`, { method: 'POST' });
+  },
+  batchCreate: async (models: CreateCustomModelData[]): Promise<CustomModel[]> => {
+    return request('/custom-models/batch', {
+      method: 'POST',
+      body: JSON.stringify({ models }),
+    }, 30000);
   },
 };

@@ -36,7 +36,14 @@ const authenticateToken = async (req, res, next) => {
 };
 
 const authenticateApiKey = async (req, res, next) => {
-  const apiKey = req.headers['x-api-key'];
+  let apiKey = req.headers['x-api-key'];
+
+  if (!apiKey) {
+    const authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      apiKey = authHeader.split(' ')[1];
+    }
+  }
 
   if (!apiKey) {
     return res.status(401).json({ error: 'API key required' });
