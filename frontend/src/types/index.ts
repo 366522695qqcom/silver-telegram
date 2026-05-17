@@ -113,6 +113,10 @@ export interface CustomModel {
   provider_name?: string;
   model_name: string;
   model_id: string;
+  model_type: string;
+  capabilities: string;
+  context_window: number | null;
+  max_output_tokens: number | null;
   base_url: string | null;
   api_key: string | null;
   enabled: number;
@@ -123,6 +127,10 @@ export interface CreateCustomModelData {
   provider_id?: string;
   model_name: string;
   model_id: string;
+  model_type?: string;
+  capabilities?: string;
+  context_window?: number | null;
+  max_output_tokens?: number | null;
   base_url?: string;
   api_key?: string;
 }
