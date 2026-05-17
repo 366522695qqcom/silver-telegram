@@ -240,24 +240,9 @@ router.post('/:id/test', authenticateToken, async (req, res) => {
         });
       } else {
         const text = await response.text().catch(() => '');
-        let errorMsg = `Chat completion test failed: HTTP ${response.status}`;
-        if (response.status === 403) {
-          try {
-            const errJson = JSON.parse(text);
-            if (errJson.detail === 'Authorization failed' || errJson.title === 'Forbidden') {
-              errorMsg = `API 返回 403 (权限不足)。NVIDIA API Key 可能缺少 "Public API Endpoints" 权限，请在 build.nvidia.com 重新生成 Key 并确保选择该权限。其他提供商请检查 API Key 是否有模型调用权限。`;
-            } else {
-              errorMsg += ` - ${text.substring(0, 200)}`;
-            }
-          } catch {
-            errorMsg += ` - ${text.substring(0, 200)}`;
-          }
-        } else {
-          errorMsg += ` - ${text.substring(0, 200)}`;
-        }
         res.json({
           success: false,
-          message: errorMsg,
+          message: `Chat completion test failed: HTTP ${response.status} - ${text.substring(0, 200)}`,
           latency_ms: latency,
         });
       }
