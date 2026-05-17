@@ -698,6 +698,27 @@ export default function Settings() {
                   )}
                 </button>
 
+                <button
+                  onClick={() => {
+                    if (!selectedProvider) return;
+                    handleFetchAndSelectModels();
+                  }}
+                  disabled={isFetchingModels}
+                  className="w-full py-3 flex items-center justify-center gap-2 mt-3 rounded-apple-md border border-apple-border text-apple-text-secondary text-sm font-medium hover:bg-apple-gray-bg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isFetchingModels ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>获取模型中...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4" />
+                      <span>获取模型</span>
+                    </>
+                  )}
+                </button>
+
                 {testResult && (
                   <div className={`apple-card rounded-apple-md p-5 ${
                     testResult.success
@@ -736,8 +757,14 @@ export default function Settings() {
                     </div>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={handleFetchAndSelectModels}
-                        disabled={!selectedProvider || isFetchingModels}
+                        onClick={() => {
+                          if (!selectedProvider) {
+                            alert('请先选择一个提供商');
+                            return;
+                          }
+                          handleFetchAndSelectModels();
+                        }}
+                        disabled={isFetchingModels}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-apple-sm border border-apple-border text-apple-text-secondary text-sm font-medium hover:bg-apple-gray-bg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title="从提供商获取模型"
                       >
