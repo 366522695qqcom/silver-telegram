@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useStore } from '@/store';
 import { providersAPI, customModelsAPI } from '@/services/api';
-import type { Provider, CreateProviderData, TestConnectionResult, CustomModel, Model } from '@/types';
-import {
-  Plus,
-  Edit,
-  Trash2,
-  ToggleLeft,
+import type { Provider, CreateProviderData, TestConnectionResult, CustomModel } from '@/types';
+import { 
+  Plus, 
+  Edit, 
+  Trash2, 
+  ToggleLeft, 
   ToggleRight,
   CheckCircle,
   XCircle,
@@ -17,10 +17,7 @@ import {
   TestTube,
   Zap,
   Wifi,
-  RotateCcw,
-  X,
-  Download,
-  Check
+  RotateCcw
 } from 'lucide-react';
 
 export default function Settings() {
@@ -32,25 +29,14 @@ export default function Settings() {
   const [isTesting, setIsTesting] = useState(false);
 
   const [customModels, setCustomModels] = useState<CustomModel[]>([]);
-  const [showCustomModelModal, setShowCustomModelModal] = useState(false);
-  const [customModelForm, setCustomModelForm] = useState({
-    model_id: '',
+  const [showCustomModelForm, setShowCustomModelForm] = useState(false);
+  const [customModelForm, setCustomModelForm] = useState<{ model_name: string; model_id: string }>({
     model_name: '',
-    model_type: 'chat',
-    capabilities: [] as string[],
-    context_window: '',
-    max_output_tokens: '',
+    model_id: '',
   });
-  const [customModelModalTestResult, setCustomModelModalTestResult] = useState<TestConnectionResult | null>(null);
-  const [customModelModalTestLoading, setCustomModelModalTestLoading] = useState(false);
   const [customModelTestResult, setCustomModelTestResult] = useState<TestConnectionResult | null>(null);
   const [customModelTestLoading, setCustomModelTestLoading] = useState<string | null>(null);
   const [customModelEditId, setCustomModelEditId] = useState<string | null>(null);
-
-  const [showModelSelector, setShowModelSelector] = useState(false);
-  const [availableModels, setAvailableModels] = useState<Model[]>([]);
-  const [selectedModels, setSelectedModels] = useState<string[]>([]);
-  const [isFetchingModels, setIsFetchingModels] = useState(false);
 
   const [formData, setFormData] = useState<CreateProviderData>({
     provider_name: '',
@@ -92,86 +78,36 @@ export default function Settings() {
     }
   };
 
-  const resetCustomModelForm = () => ({
-    model_id: '',
-    model_name: '',
-    model_type: 'chat',
-    capabilities: [],
-    context_window: '',
-    max_output_tokens: '',
-  });
-
-  const handleOpenNewModelModal = () => {
-    setCustomModelEditId(null);
-    setCustomModelForm(resetCustomModelForm());
-    setCustomModelModalTestResult(null);
-    setShowCustomModelModal(true);
-  };
-
-  const handleOpenEditModelModal = (cm: CustomModel) => {
-    setCustomModelEditId(cm.id);
-    setCustomModelForm({
-      model_id: cm.model_id,
-      model_name: cm.model_name,
-      model_type: cm.model_type || 'chat',
-      capabilities: cm.capabilities || [],
-      context_window: cm.context_window?.toString() || '',
-      max_output_tokens: cm.max_output_tokens?.toString() || '',
-    });
-    setCustomModelModalTestResult(null);
-    setShowCustomModelModal(true);
-  };
-
-  const toggleCapability = (cap: string) => {
-    setCustomModelForm(prev => ({
-      ...prev,
-      capabilities: prev.capabilities.includes(cap)
-        ? prev.capabilities.filter(c => c !== cap)
-        : [...prev.capabilities, cap],
-    }));
-  };
-
   const handleCreateCustomModel = async () => {
-    if (!customModelForm.model_id) return;
+    if (!customModelForm.model_name || !customModelForm.model_id) return;
     try {
       const data = {
         provider_id: selectedProvider?.id || undefined,
-        model_name: customModelForm.model_name || customModelForm.model_id,
+        model_name: customModelForm.model_name,
         model_id: customModelForm.model_id,
-        model_type: customModelForm.model_type,
-        capabilities: customModelForm.capabilities,
-        context_window: customModelForm.context_window ? parseInt(customModelForm.context_window) : undefined,
-        max_output_tokens: customModelForm.max_output_tokens ? parseInt(customModelForm.max_output_tokens) : undefined,
       };
       const newModel = await customModelsAPI.create(data);
       setCustomModels([newModel, ...customModels]);
-      setShowCustomModelModal(false);
-      setCustomModelForm(resetCustomModelForm());
+      setShowCustomModelForm(false);
+      setCustomModelForm({ model_name: '', model_id: '' });
     } catch (error) {
       console.error('Failed to create custom model:', error);
-      alert('创建失败: ' + (error as Error).message);
     }
   };
 
   const handleUpdateCustomModel = async () => {
-    if (!customModelEditId || !customModelForm.model_id) return;
+    if (!customModelEditId || !customModelForm.model_name || !customModelForm.model_id) return;
     try {
-      const data = {
-        model_name: customModelForm.model_name || customModelForm.model_id,
+      const updated = await customModelsAPI.update(customModelEditId, {
+        model_name: customModelForm.model_name,
         model_id: customModelForm.model_id,
-        model_type: customModelForm.model_type,
-        capabilities: customModelForm.capabilities,
-        context_window: customModelForm.context_window ? parseInt(customModelForm.context_window) : undefined,
-        max_output_tokens: customModelForm.max_output_tokens ? parseInt(customModelForm.max_output_tokens) : undefined,
-      };
-      const updated = await customModelsAPI.update(customModelEditId, data);
+      });
       setCustomModels(customModels.map(m => m.id === updated.id ? updated : m));
-      setShowCustomModelModal(false);
-      setCustomModelForm(resetCustomModelForm());
       setCustomModelEditId(null);
+      setShowCustomModelForm(false);
+      setCustomModelForm({ model_name: '', model_id: '' });
     } catch (error) {
       console.error('Failed to update custom model:', error);
-      alert('更新失败: ' + (error as Error).message);
     }
   };
 
@@ -208,68 +144,6 @@ export default function Settings() {
     }
   };
 
-  const handleFetchAndSelectModels = async () => {
-    if (!selectedProvider) return;
-    setIsFetchingModels(true);
-    try {
-      const data = await providersAPI.getModels(selectedProvider.id);
-      if (data && data.models && data.models.length > 0) {
-        setAvailableModels(data.models);
-        setSelectedModels([]);
-        setShowModelSelector(true);
-      } else {
-        alert('未能获取到可用模型');
-      }
-    } catch (error) {
-      console.error('Failed to fetch models:', error);
-      alert('获取模型失败: ' + (error as Error).message);
-    } finally {
-      setIsFetchingModels(false);
-    }
-  };
-
-  const toggleModelSelection = (modelId: string) => {
-    setSelectedModels(prev =>
-      prev.includes(modelId)
-        ? prev.filter(id => id !== modelId)
-        : [...prev, modelId]
-    );
-  };
-
-  const selectAllModels = () => {
-    setSelectedModels(availableModels.map(m => m.id));
-  };
-
-  const deselectAllModels = () => {
-    setSelectedModels([]);
-  };
-
-  const handleAddSelectedModels = async () => {
-    if (selectedModels.length === 0) {
-      setShowModelSelector(false);
-      return;
-    }
-
-    try {
-      for (const modelId of selectedModels) {
-        const model = availableModels.find(m => m.id === modelId);
-        if (model && !customModels.some(cm => cm.model_id === modelId)) {
-          await customModelsAPI.create({
-            provider_id: selectedProvider?.id,
-            model_name: model.name || model.id,
-            model_id: model.id,
-          });
-        }
-      }
-      await fetchCustomModels();
-      setShowModelSelector(false);
-      setSelectedModels([]);
-    } catch (error) {
-      console.error('Failed to add models:', error);
-      alert('添加模型失败: ' + (error as Error).message);
-    }
-  };
-
   const handleResetCustomModels = async () => {
     if (customModels.length === 0) return;
 
@@ -287,33 +161,6 @@ export default function Settings() {
       console.error('Failed to reset models:', error);
       setCustomModels(originalModels);
       alert('重置失败: ' + (error as Error).message);
-    }
-  };
-
-  const handleTestInModal = async () => {
-    if (!customModelForm.model_id) return;
-    if (!customModelEditId) {
-      alert('请先保存模型后再测试');
-      return;
-    }
-    setCustomModelModalTestLoading(true);
-    setCustomModelModalTestResult(null);
-    try {
-      const result = await customModelsAPI.testConnection(customModelEditId);
-      setCustomModelModalTestResult(result);
-    } catch (error) {
-      setCustomModelModalTestResult({ success: false, message: (error as Error).message });
-    } finally {
-      setCustomModelModalTestLoading(false);
-    }
-  };
-
-  const handleSaveCustomModel = async () => {
-    if (!customModelForm.model_id) return;
-    if (customModelEditId) {
-      await handleUpdateCustomModel();
-    } else {
-      await handleCreateCustomModel();
     }
   };
 
@@ -352,7 +199,7 @@ export default function Settings() {
     setTestResult(null);
     setCustomModels([]);
     setCustomModelTestResult(null);
-    setShowCustomModelModal(false);
+    setShowCustomModelForm(false);
   };
 
   const handleCreate = async () => {
@@ -427,7 +274,7 @@ export default function Settings() {
 
   const renderRightPanel = () => {
     console.log('Rendering right panel. isCreating:', isCreating, 'selectedProvider:', selectedProvider);
-
+    
     if (isCreating) {
       return (
         <div className="flex-1 p-8 overflow-y-auto animate-apple-slide-up min-h-full">
@@ -523,7 +370,7 @@ export default function Settings() {
               </button>
             </div>
           </div>
-
+          
           <div className="flex-1 overflow-y-auto">
             {isEditing ? (
               <div className="p-8 animate-apple-slide-up">
@@ -698,27 +545,6 @@ export default function Settings() {
                   )}
                 </button>
 
-                <button
-                  onClick={() => {
-                    if (!selectedProvider) return;
-                    handleFetchAndSelectModels();
-                  }}
-                  disabled={isFetchingModels}
-                  className="w-full py-3 flex items-center justify-center gap-2 mt-3 rounded-apple-md border border-apple-border text-apple-text-secondary text-sm font-medium hover:bg-apple-gray-bg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isFetchingModels ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>获取模型中...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-4 h-4" />
-                      <span>获取模型</span>
-                    </>
-                  )}
-                </button>
-
                 {testResult && (
                   <div className={`apple-card rounded-apple-md p-5 ${
                     testResult.success
@@ -758,25 +584,10 @@ export default function Settings() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => {
-                          if (!selectedProvider) {
-                            alert('请先选择一个提供商');
-                            return;
-                          }
-                          handleFetchAndSelectModels();
+                          setShowCustomModelForm(!showCustomModelForm);
+                          setCustomModelEditId(null);
+                          setCustomModelForm({ model_name: '', model_id: '' });
                         }}
-                        disabled={isFetchingModels}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-apple-sm border border-apple-border text-apple-text-secondary text-sm font-medium hover:bg-apple-gray-bg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="从提供商获取模型"
-                      >
-                        {isFetchingModels ? (
-                          <RefreshCw className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Download className="w-4 h-4" />
-                        )}
-                        <span>获取</span>
-                      </button>
-                      <button
-                        onClick={handleOpenNewModelModal}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-apple-sm bg-purple-600 text-white text-sm font-medium hover:bg-purple-700 transition-colors"
                         title="新建模型"
                       >
@@ -795,6 +606,52 @@ export default function Settings() {
                     </div>
                   </div>
                   <div className="p-5">
+
+                  {showCustomModelForm && (
+                    <div className="mb-5 p-4 rounded-apple-md border-2 border-dashed border-purple-200 bg-purple-50/50">
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                          <label className="block text-xs font-medium text-apple-text-secondary mb-1">模型名称 *</label>
+                          <input
+                            type="text"
+                            value={customModelForm.model_name}
+                            onChange={(e) => setCustomModelForm({ ...customModelForm, model_name: e.target.value })}
+                            placeholder="如: GPT-4 Turbo"
+                            className="apple-input w-full px-3 py-2 text-sm rounded-apple-sm border border-apple-border focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-apple-text-secondary mb-1">模型 ID *</label>
+                          <input
+                            type="text"
+                            value={customModelForm.model_id}
+                            onChange={(e) => setCustomModelForm({ ...customModelForm, model_id: e.target.value })}
+                            placeholder="如: gpt-4-turbo"
+                            className="apple-input w-full px-3 py-2 text-sm rounded-apple-sm border border-apple-border focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={customModelEditId ? handleUpdateCustomModel : handleCreateCustomModel}
+                          disabled={!customModelForm.model_name || !customModelForm.model_id}
+                          className="apple-btn-primary px-4 py-2 text-sm font-medium rounded-apple-sm bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {customModelEditId ? '更新模型' : '添加模型'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowCustomModelForm(false);
+                            setCustomModelEditId(null);
+                            setCustomModelForm({ model_name: '', model_id: '' });
+                          }}
+                          className="px-4 py-2 text-sm font-medium rounded-apple-sm border border-apple-border text-apple-text-secondary hover:bg-apple-gray-bg transition-colors"
+                        >
+                          取消
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {customModelTestResult && (
                     <div className={`mb-5 p-4 rounded-apple-md ${
@@ -863,7 +720,14 @@ export default function Settings() {
                               )}
                             </button>
                             <button
-                              onClick={() => handleOpenEditModelModal(cm)}
+                              onClick={() => {
+                                setCustomModelEditId(cm.id);
+                                setShowCustomModelForm(true);
+                                setCustomModelForm({
+                                  model_name: cm.model_name,
+                                  model_id: cm.model_id,
+                                });
+                              }}
                               className="p-2 rounded-apple-sm hover:bg-apple-gray-bg transition-colors"
                               title="编辑"
                             >
@@ -880,7 +744,7 @@ export default function Settings() {
                         </div>
                       ))}
                     </div>
-                  ) : (
+                  ) : !showCustomModelForm && (
                     <div className="text-center py-8">
                       <p className="text-sm text-apple-text-secondary">暂无可用模型</p>
                       <p className="text-xs text-apple-text-secondary/60 mt-1">点击上方按钮添加模型</p>
@@ -941,7 +805,7 @@ export default function Settings() {
               <span>新建</span>
             </button>
           </div>
-
+          
           <div className="flex-1 overflow-y-auto p-3">
             {providers.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-apple-text-secondary px-4">
@@ -964,9 +828,9 @@ export default function Settings() {
                       }`}
                     >
                       <div className={`w-10 h-10 rounded-apple-sm flex items-center justify-center flex-shrink-0 ${
-                        provider.enabled
-                          ? selectedProvider?.id === provider.id
-                            ? 'bg-white/20'
+                        provider.enabled 
+                          ? selectedProvider?.id === provider.id 
+                            ? 'bg-white/20' 
                             : 'apple-badge-success'
                           : 'bg-gray-100 text-gray-400'
                       }`}>
@@ -1002,247 +866,6 @@ export default function Settings() {
         </div>
       </div>
     </div>
-
-    {showCustomModelModal && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
-        <div
-          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-          onClick={() => setShowCustomModelModal(false)}
-        />
-        <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-scale-in">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">
-              {customModelEditId ? '编辑模型' : '新建模型'}
-            </h3>
-            <button
-              onClick={() => setShowCustomModelModal(false)}
-              className="p-1 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              <X className="w-5 h-5 text-gray-500" />
-            </button>
-          </div>
-
-          <div className="px-6 py-5 space-y-4 max-h-[60vh] overflow-y-auto">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">模型 ID</label>
-              <input
-                type="text"
-                value={customModelForm.model_id}
-                onChange={(e) => setCustomModelForm({ ...customModelForm, model_id: e.target.value })}
-                placeholder="如: gpt-4-turbo"
-                className="apple-input w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">显示名称</label>
-              <input
-                type="text"
-                value={customModelForm.model_name}
-                onChange={(e) => setCustomModelForm({ ...customModelForm, model_name: e.target.value })}
-                placeholder="可选"
-                className="apple-input w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">模型类型</label>
-              <select
-                value={customModelForm.model_type}
-                onChange={(e) => setCustomModelForm({ ...customModelForm, model_type: e.target.value })}
-                className="apple-input w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-              >
-                <option value="chat">聊天</option>
-                <option value="embedding">嵌入</option>
-                <option value="image_generation">图片生成</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">能力</label>
-              <div className="flex gap-6">
-                {[['vision', '视觉'], ['reasoning', '推理'], ['tool_use', '工具使用']].map(([cap, label]) => (
-                  <label key={cap} className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={customModelForm.capabilities.includes(cap)}
-                      onChange={() => toggleCapability(cap)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
-                    />
-                    <span className="text-sm text-gray-600">{label}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">高级设置</label>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">上下文窗口</label>
-                  <input
-                    type="number"
-                    value={customModelForm.context_window}
-                    onChange={(e) => setCustomModelForm({ ...customModelForm, context_window: e.target.value })}
-                    placeholder="例如 128000"
-                    className="apple-input w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">最大输出Token数</label>
-                  <input
-                    type="number"
-                    value={customModelForm.max_output_tokens}
-                    onChange={(e) => setCustomModelForm({ ...customModelForm, max_output_tokens: e.target.value })}
-                    placeholder="例如 4096"
-                    className="apple-input w-full px-3 py-2 text-sm rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {customModelModalTestResult && (
-              <div className={`p-3 rounded-lg ${
-                customModelModalTestResult.success
-                  ? 'bg-green-50 border border-green-200'
-                  : 'bg-red-50 border border-red-200'
-              }`}>
-                <div className="flex items-start gap-2">
-                  {customModelModalTestResult.success ? (
-                    <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                  ) : (
-                    <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                  )}
-                  <div>
-                    <p className={`text-sm font-medium ${customModelModalTestResult.success ? 'text-green-800' : 'text-red-800'}`}>
-                      {customModelModalTestResult.success ? '测试成功' : '测试失败'}
-                    </p>
-                    <p className={`text-xs mt-0.5 ${customModelModalTestResult.success ? 'text-green-600' : 'text-red-600'}`}>
-                      {customModelModalTestResult.message}
-                      {customModelModalTestResult.latency_ms !== undefined && (
-                        <span> ({customModelModalTestResult.latency_ms}ms)</span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
-            <button
-              onClick={() => setShowCustomModelModal(false)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              取消
-            </button>
-            <button
-              onClick={handleTestInModal}
-              disabled={customModelModalTestLoading || !customModelForm.model_id || !customModelEditId}
-              className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {customModelModalTestLoading ? '测试中...' : '测试模型'}
-            </button>
-            <button
-              onClick={handleSaveCustomModel}
-              disabled={!customModelForm.model_id}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              保存
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-
-    {showModelSelector && (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 animate-fade-in">
-        <div
-          className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-          onClick={() => setShowModelSelector(false)}
-        />
-        <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-scale-in">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center gap-3">
-              <Download className="w-5 h-5 text-purple-600" />
-              <div>
-                <h3 className="font-semibold text-gray-900">选择模型</h3>
-                <p className="text-xs text-gray-500">从提供商获取到 {availableModels.length} 个模型</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowModelSelector(false)}
-              className="p-1 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              <X className="w-5 h-5 text-gray-500" />
-            </button>
-          </div>
-
-          <div className="flex items-center justify-between px-6 py-3 bg-gray-50 border-b border-gray-200">
-            <div className="flex items-center gap-2">
-              <button onClick={selectAllModels} className="text-xs text-gray-600 hover:text-gray-900 transition-colors">全选</button>
-              <span className="text-gray-300">|</span>
-              <button onClick={deselectAllModels} className="text-xs text-gray-600 hover:text-gray-900 transition-colors">取消全选</button>
-            </div>
-            <span className="text-xs text-gray-500">已选择 {selectedModels.length} 个</span>
-          </div>
-
-          <div className="max-h-[400px] overflow-y-auto p-4 space-y-2">
-            {availableModels.map((model) => {
-              const isSelected = selectedModels.includes(model.id);
-              const alreadyExists = customModels.some(cm => cm.model_id === model.id);
-
-              return (
-                <div
-                  key={model.id}
-                  onClick={() => !alreadyExists && toggleModelSelection(model.id)}
-                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
-                    isSelected
-                      ? 'border-purple-500 bg-purple-50'
-                      : alreadyExists
-                        ? 'border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed'
-                        : 'border-gray-200 hover:border-purple-200 hover:bg-purple-50/50'
-                  }`}
-                >
-                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
-                    isSelected
-                      ? 'bg-purple-600 border-purple-600'
-                      : alreadyExists
-                        ? 'bg-gray-200 border-gray-300'
-                        : 'border-gray-300'
-                  }`}>
-                    {isSelected && <Check className="w-3 h-3 text-white" />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900 truncate">{model.name || model.id}</p>
-                    <p className="text-xs text-gray-500 truncate">{model.id}</p>
-                  </div>
-                  {alreadyExists && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 flex-shrink-0">已存在</span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
-            <button
-              onClick={() => setShowModelSelector(false)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              取消
-            </button>
-            <button
-              onClick={handleAddSelectedModels}
-              disabled={selectedModels.length === 0}
-              className="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              添加选中 ({selectedModels.length})
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
 
     </>
   );
