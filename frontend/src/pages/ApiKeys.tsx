@@ -135,7 +135,8 @@ export default function ApiKeys() {
             <span className="bg-apple-blue/10 text-apple-blue px-2 py-1 rounded-lg font-semibold text-xs">2</span>
             <div>
               <p className="font-medium text-apple-text">认证方式</p>
-              <p className="mt-1">在请求头中添加：<code className="font-mono bg-gray-100 text-apple-text px-2 py-1 rounded text-xs">X-API-Key: your_api_key</code></p>
+              <p className="mt-1">在请求头中添加：<code className="font-mono bg-gray-100 text-apple-text px-2 py-1 rounded text-xs">Authorization: Bearer your_api_key</code></p>
+              <p className="mt-1 text-xs text-apple-text-secondary">也支持 <code className="font-mono bg-gray-100 text-apple-text px-1 py-0.5 rounded text-xs">X-API-Key: your_api_key</code></p>
             </div>
           </div>
           <div className="flex items-start gap-3">
