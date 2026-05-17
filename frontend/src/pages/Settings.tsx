@@ -192,14 +192,13 @@ export default function Settings() {
 
   const handleSaveModel = async () => {
     if (!modelForm.model_id) return;
-    const capsJson = JSON.stringify(modelForm.capabilities);
     try {
       if (modelEditId) {
         const updated = await customModelsAPI.update(modelEditId, {
           model_name: modelForm.model_name || modelForm.model_id,
           model_id: modelForm.model_id,
           model_type: modelForm.model_type,
-          capabilities: capsJson,
+          capabilities: modelForm.capabilities,
           context_window: modelForm.context_window || null,
           max_output_tokens: modelForm.max_output_tokens || null,
         });
@@ -210,7 +209,7 @@ export default function Settings() {
           model_name: modelForm.model_name || modelForm.model_id,
           model_id: modelForm.model_id,
           model_type: modelForm.model_type,
-          capabilities: capsJson,
+          capabilities: modelForm.capabilities,
           context_window: modelForm.context_window || null,
           max_output_tokens: modelForm.max_output_tokens || null,
         });
@@ -219,6 +218,7 @@ export default function Settings() {
       closeModelModal();
     } catch (error) {
       console.error('Failed to save model:', error);
+      alert('保存模型失败: ' + (error as Error).message);
     }
   };
 
@@ -329,7 +329,7 @@ export default function Settings() {
         model_id: m.id,
         model_name: m.id,
         model_type: inferred.model_type || 'chat',
-        capabilities: JSON.stringify(inferred.capabilities || { vision: false, reasoning: false, tool_use: false }),
+        capabilities: inferred.capabilities || { vision: false, reasoning: false, tool_use: false },
         context_window: inferred.context_window || null,
         max_output_tokens: inferred.max_output_tokens || null,
       };
@@ -339,6 +339,7 @@ export default function Settings() {
       setCustomModels([...newModels, ...customModels]);
     } catch (error) {
       console.error('Failed to add models:', error);
+      alert('添加模型失败: ' + (error as Error).message);
       fetchCustomModels();
     }
   };

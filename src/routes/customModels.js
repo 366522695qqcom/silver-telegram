@@ -41,10 +41,11 @@ router.post('/', authenticateToken, async (req, res) => {
       }
     }
 
+    const capsValue = typeof capabilities === 'string' ? capabilities : JSON.stringify(capabilities || {});
     const id = uuidv4();
     await run(
       'INSERT INTO custom_models (id, user_id, provider_id, model_name, model_id, model_type, capabilities, context_window, max_output_tokens, base_url, api_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, req.user.id, provider_id || null, model_name, model_id, model_type || 'chat', capabilities || '{}', context_window || null, max_output_tokens || null, finalBaseUrl, finalApiKey]
+      [id, req.user.id, provider_id || null, model_name, model_id, model_type || 'chat', capsValue, context_window || null, max_output_tokens || null, finalBaseUrl, finalApiKey]
     );
 
     const result = await query(
@@ -54,6 +55,58 @@ router.post('/', authenticateToken, async (req, res) => {
 
     res.status(201).json(result.rows[0]);
   } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/batch', authenticateToken, async (req, res) => {
+  try {
+    const { models } = req.body;
+    if (!models || !Array.isArray(models) || models.length === 0) {
+      return res.status(400).json({ error: 'models array is required' });
+    }
+
+    const results = [];
+    for (const model of models) {
+      const { provider_id, model_name, model_id, model_type, capabilities, context_window, max_output_tokens } = model;
+
+      if (!model_name || !model_id) continue;
+
+      let finalBaseUrl = null;
+      let finalApiKey = null;
+
+      if (provider_id) {
+        const providerResult = await query(
+          'SELECT base_url, api_key FROM providers WHERE id = ? AND user_id = ?',
+          [provider_id, req.user.id]
+        );
+        if (providerResult.rows.length > 0) {
+          const provider = providerResult.rows[0];
+          if (!finalBaseUrl) finalBaseUrl = provider.base_url;
+          if (!finalApiKey) finalApiKey = provider.api_key;
+        }
+      }
+
+      const capsValue = typeof capabilities === 'string' ? capabilities : JSON.stringify(capabilities || {});
+
+      const id = uuidv4();
+      await run(
+        'INSERT INTO custom_models (id, user_id, provider_id, model_name, model_id, model_type, capabilities, context_window, max_output_tokens, base_url, api_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [id, req.user.id, provider_id || null, model_name, model_id, model_type || 'chat', capsValue, context_window || null, max_output_tokens || null, finalBaseUrl, finalApiKey]
+      );
+
+      const result = await query(
+        'SELECT cm.*, p.provider_name FROM custom_models cm LEFT JOIN providers p ON cm.provider_id = p.id WHERE cm.id = ?',
+        [id]
+      );
+      if (result.rows.length > 0) {
+        results.push(result.rows[0]);
+      }
+    }
+
+    res.status(201).json(results);
+  } catch (error) {
+    console.error('Batch create error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -79,7 +132,11 @@ router.put('/:id', authenticateToken, async (req, res) => {
     if (api_key !== undefined) { updateFields.push('api_key = ?'); updateValues.push(api_key || null); }
     if (enabled !== undefined) { updateFields.push('enabled = ?'); updateValues.push(enabled ? 1 : 0); }
     if (model_type !== undefined) { updateFields.push('model_type = ?'); updateValues.push(model_type); }
-    if (capabilities !== undefined) { updateFields.push('capabilities = ?'); updateValues.push(capabilities); }
+    if (capabilities !== undefined) {
+      updateFields.push('capabilities = ?');
+      const capsValue = typeof capabilities === 'string' ? capabilities : JSON.stringify(capabilities);
+      updateValues.push(capsValue);
+    }
     if (context_window !== undefined) { updateFields.push('context_window = ?'); updateValues.push(context_window || null); }
     if (max_output_tokens !== undefined) { updateFields.push('max_output_tokens = ?'); updateValues.push(max_output_tokens || null); }
 

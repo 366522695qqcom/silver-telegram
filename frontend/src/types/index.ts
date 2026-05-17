@@ -128,7 +128,7 @@ export interface CreateCustomModelData {
   model_name: string;
   model_id: string;
   model_type?: string;
-  capabilities?: string;
+  capabilities?: Record<string, boolean> | string;
   context_window?: number | null;
   max_output_tokens?: number | null;
   base_url?: string;

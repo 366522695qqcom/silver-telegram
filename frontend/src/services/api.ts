@@ -468,14 +468,9 @@ export const customModelsAPI = {
     return request(`/custom-models/${id}/test`, { method: 'POST' });
   },
   batchCreate: async (models: CreateCustomModelData[]): Promise<CustomModel[]> => {
-    const results: CustomModel[] = [];
-    for (const model of models) {
-      const result = await request<CustomModel>('/custom-models', {
-        method: 'POST',
-        body: JSON.stringify(model),
-      });
-      results.push(result);
-    }
-    return results;
+    return request('/custom-models/batch', {
+      method: 'POST',
+      body: JSON.stringify({ models }),
+    });
   },
 };
