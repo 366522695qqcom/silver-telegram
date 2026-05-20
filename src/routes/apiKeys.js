@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const result = await query('SELECT id, name, key, enabled, created_at, expires_at FROM api_keys WHERE user_id = ?', [req.user.id]);
+    const result = await query('SELECT id, name, "key", enabled, created_at, expires_at FROM api_keys WHERE user_id = ?', [req.user.id]);
     res.json(result.rows);
   } catch (error) {
     console.error(error);
@@ -22,11 +22,11 @@ router.post('/', authenticateToken, async (req, res) => {
     const id = uuidv4();
 
     await run(
-      'INSERT INTO api_keys (id, user_id, key, name, expires_at) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO api_keys (id, user_id, "key", name, expires_at) VALUES (?, ?, ?, ?, ?)',
       [id, req.user.id, keyValue, name, expires_at || null]
     );
 
-    const result = await query('SELECT id, name, key, enabled, created_at, expires_at FROM api_keys WHERE id = ?', [id]);
+    const result = await query('SELECT id, name, "key", enabled, created_at, expires_at FROM api_keys WHERE id = ?', [id]);
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error(error);
@@ -36,7 +36,7 @@ router.post('/', authenticateToken, async (req, res) => {
 
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
-    const result = await query('SELECT id, name, key, enabled, created_at, expires_at FROM api_keys WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    const result = await query('SELECT id, name, "key", enabled, created_at, expires_at FROM api_keys WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'API key not found' });
@@ -79,7 +79,43 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
     await run(`UPDATE api_keys SET ${updateFields.join(', ')} WHERE id = ? AND user_id = ?`, updateValues);
 
-    const result = await query('SELECT id, name, key, enabled, created_at, expires_at FROM api_keys WHERE id = ?', [req.params.id]);
+    const result = await query('SELECT id, name, "key", enabled, created_at, expires_at FROM api_keys WHERE id = ?', [req.params.id]);
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/:id/toggle', authenticateToken, async (req, res) => {
+  try {
+    const existing = await query('SELECT * FROM api_keys WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'API key not found' });
+    }
+
+    const newEnabled = existing.rows[0].enabled && Number(existing.rows[0].enabled) === 1 ? 0 : 1;
+    await run('UPDATE api_keys SET enabled = ? WHERE id = ? AND user_id = ?', [newEnabled, req.params.id, req.user.id]);
+
+    const result = await query('SELECT id, name, "key", enabled, created_at, expires_at FROM api_keys WHERE id = ?', [req.params.id]);
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.post('/:id/regenerate', authenticateToken, async (req, res) => {
+  try {
+    const existing = await query('SELECT * FROM api_keys WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'API key not found' });
+    }
+
+    const newKeyValue = uuidv4().replace(/-/g, '');
+    await run('UPDATE api_keys SET "key" = ? WHERE id = ? AND user_id = ?', [newKeyValue, req.params.id, req.user.id]);
+
+    const result = await query('SELECT id, name, "key", enabled, created_at, expires_at FROM api_keys WHERE id = ?', [req.params.id]);
     res.json(result.rows[0]);
   } catch (error) {
     console.error(error);
