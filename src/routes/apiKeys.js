@@ -130,6 +130,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'API key not found' });
     }
 
+    await run('DELETE FROM requests WHERE api_key_id = ?', [req.params.id]);
     await run('DELETE FROM api_keys WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
     res.json({ message: 'API key deleted successfully' });
   } catch (error) {
