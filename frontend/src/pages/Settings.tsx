@@ -800,6 +800,7 @@ export default function Settings() {
                 className="apple-input"
                 placeholder="sk-..."
               />
+              <p className="text-xs text-apple-text-secondary mt-1.5">支持多个 Key，用英文逗号分隔，将自动轮询调用</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-apple-text mb-3">Base URL</label>
@@ -894,6 +895,7 @@ export default function Settings() {
                       onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
                       className="apple-input"
                     />
+                    <p className="text-xs text-apple-text-secondary mt-1.5">支持多个 Key，用英文逗号分隔，将自动轮询调用</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-apple-text mb-3">Base URL</label>
@@ -974,9 +976,14 @@ export default function Settings() {
                     </div>
                     <div className="flex items-center justify-between py-2">
                       <span className="text-apple-text-secondary text-sm">API Key</span>
-                      <span className="font-mono text-sm text-apple-text bg-apple-gray-bg px-3 py-1.5 rounded-apple-sm">
-                        {(selectedProvider as any).api_key ? (selectedProvider as any).api_key.slice(0, 8) + '...' : '未设置'}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm text-apple-text bg-apple-gray-bg px-3 py-1.5 rounded-apple-sm">
+                          {(selectedProvider as any).api_key ? (selectedProvider as any).api_key.split(',').filter((k: string) => k.trim()).length > 1 
+                            ? `${(selectedProvider as any).api_key.split(',').filter((k: string) => k.trim()).length} 个 Key` 
+                            : (selectedProvider as any).api_key.slice(0, 8) + '...' 
+                            : '未设置'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -6,6 +6,7 @@ const routerService = require('../services/routerService');
 const costService = require('../services/costService');
 const cacheService = require('../utils/cache');
 const RetryService = require('../utils/retry');
+const { selectApiKey, getFirstApiKey } = require('../utils/keyRotation');
 const { authenticateApiKey } = require('../middleware/auth');
 
 const router = express.Router();
@@ -57,7 +58,7 @@ router.post('/chat/completions', authenticateApiKey, async (req, res) => {
       return providerService.chatCompletion(
         {
           base_url: provider.base_url,
-          api_key: provider.api_key,
+          api_key: selectApiKey(provider.id, provider.api_key),
           provider_type: provider.provider_type,
         },
         { model, messages, max_tokens, temperature, stream }
@@ -185,7 +186,7 @@ router.post('/completions', authenticateApiKey, async (req, res) => {
       return providerService.chatCompletion(
         {
           base_url: provider.base_url,
-          api_key: provider.api_key,
+          api_key: selectApiKey(provider.id, provider.api_key),
           provider_type: provider.provider_type,
         },
         { model, messages, max_tokens, temperature, stream }
@@ -298,7 +299,7 @@ router.post('/chat/embeddings', authenticateApiKey, async (req, res) => {
     const result = await providerService.embeddings(
       {
         base_url: provider.base_url,
-        api_key: provider.api_key,
+        api_key: selectApiKey(provider.id, provider.api_key),
         provider_type: provider.provider_type,
       },
       { model, input, encoding_format }
@@ -361,7 +362,7 @@ router.post('/embeddings', authenticateApiKey, async (req, res) => {
     const result = await providerService.embeddings(
       {
         base_url: provider.base_url,
-        api_key: provider.api_key,
+        api_key: selectApiKey(provider.id, provider.api_key),
         provider_type: provider.provider_type,
       },
       { model, input, encoding_format }
@@ -443,7 +444,7 @@ router.get('/chat/models', authenticateApiKey, async (req, res) => {
       try {
         const models = await providerService.getModels({
           base_url: provider.base_url,
-          api_key: provider.api_key,
+          api_key: getFirstApiKey(provider.api_key),
           provider_type: provider.provider_type,
         });
         allModels.push(...models.map(m => ({
@@ -496,7 +497,7 @@ router.get('/models', authenticateApiKey, async (req, res) => {
       try {
         const models = await providerService.getModels({
           base_url: provider.base_url,
-          api_key: provider.api_key,
+          api_key: getFirstApiKey(provider.api_key),
           provider_type: provider.provider_type,
         });
         allModels.push(...models.map(m => ({

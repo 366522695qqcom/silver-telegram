@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { query, run } = require('../utils/db');
 const providerService = require('../services/providerService');
+const { getFirstApiKey } = require('../utils/keyRotation');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -33,7 +34,7 @@ router.get('/models', authenticateToken, async (req, res) => {
     try {
       const models = await providerService.getModels({
         base_url: provider.base_url,
-        api_key: provider.api_key,
+        api_key: getFirstApiKey(provider.api_key),
         provider_type: provider.provider_type,
       });
 
@@ -166,7 +167,7 @@ router.post('/:id/test', authenticateToken, async (req, res) => {
     const provider = result.rows[0];
     const testResult = await providerService.testConnection({
       base_url: provider.base_url,
-      api_key: provider.api_key,
+      api_key: getFirstApiKey(provider.api_key),
       provider_type: provider.provider_type,
     });
 
@@ -212,7 +213,7 @@ router.get('/:id/models', authenticateToken, async (req, res) => {
     try {
       const models = await providerService.getModels({
         base_url: provider.base_url,
-        api_key: provider.api_key,
+        api_key: getFirstApiKey(provider.api_key),
         provider_type: provider.provider_type,
       });
 
