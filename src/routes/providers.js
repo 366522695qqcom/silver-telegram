@@ -189,7 +189,7 @@ router.post('/:id/toggle', authenticateToken, async (req, res) => {
     }
 
     const provider = result.rows[0];
-    const newEnabled = provider.enabled ? 0 : 1;
+    const newEnabled = Number(provider.enabled) === 1 ? 0 : 1;
 
     await run('UPDATE providers SET enabled = ? WHERE id = ? AND user_id = ?', [newEnabled, req.params.id, req.user.id]);
 
