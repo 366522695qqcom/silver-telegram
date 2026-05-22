@@ -218,7 +218,7 @@ router.post('/:id/toggle', authenticateToken, async (req, res) => {
     }
 
     const model = result.rows[0];
-    const newEnabled = model.enabled ? 0 : 1;
+    const newEnabled = Number(model.enabled) === 1 ? 0 : 1;
     await run(
       'UPDATE custom_models SET enabled = ? WHERE id = ? AND user_id = ?',
       [newEnabled, req.params.id, req.user.id]
