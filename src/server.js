@@ -84,11 +84,13 @@ const startDbInit = () => {
 app.get('/api/ping', async (req, res) => {
   const start = Date.now();
   const token = process.env.LIBSQL_AUTH_TOKEN || '';
-  const url = process.env.LIBSQL_URL || '';
+  const libsqlUrl = process.env.LIBSQL_URL || '';
   try {
+    const baseUrl = libsqlUrl.replace('libsql://', 'https://').replace(/\/$/, '');
+    const pipelineUrl = `${baseUrl}/v2/pipeline`;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
-    const resp = await fetch('https://h-hwhjk.aws-ap-northeast-1.turso.io/v2/pipeline', {
+    const resp = await fetch(pipelineUrl, {
       method: 'POST',
       headers: {
         'Authorization': 'Bearer ' + token,
@@ -99,7 +101,7 @@ app.get('/api/ping', async (req, res) => {
     });
     clearTimeout(timer);
     const data = await resp.json();
-    res.json({ ok: true, latency: Date.now() - start, status: resp.status, hasToken: !!token, tokenLen: token.length, urlLen: url.length, rows: data?.results?.[0]?.response?.result?.rows?.length });
+    res.json({ ok: true, latency: Date.now() - start, status: resp.status, hasToken: !!token, tokenLen: token.length, urlLen: libsqlUrl.length, rows: data?.results?.[0]?.response?.result?.rows?.length });
   } catch (e) {
     res.json({ ok: false, latency: Date.now() - start, error: e.message?.substring(0, 150), name: e.name, hasToken: !!token });
   }
