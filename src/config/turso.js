@@ -113,4 +113,4 @@ const executeTurso = async (sql, params = []) => {
   }
 };
 
-module.exports = { executeTurso, getTursoClient, resetClient, classifyError };
+module.exports = { executeTurso, getTursoClient, resetClient, classifyError, extractTursoValue, convertTursoRows, toTursoValue };

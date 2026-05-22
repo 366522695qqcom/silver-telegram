@@ -21,4 +21,8 @@ const getFirstApiKey = (apiKeyField) => {
   return keys[0] || apiKeyField;
 };
 
-module.exports = { selectApiKey, getApiKeyCount, getFirstApiKey };
+const resetCounters = () => {
+  keyCounters.clear();
+};
+
+module.exports = { selectApiKey, getApiKeyCount, getFirstApiKey, resetCounters };

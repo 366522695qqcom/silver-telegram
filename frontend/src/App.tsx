@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useStore } from '@/store';
 import { authAPI } from '@/services/api';
 import Login from '@/pages/Login';
 import Home from '@/pages/Home';
-import Settings from '@/pages/Settings';
-import ApiKeys from '@/pages/ApiKeys';
-import Monitor from '@/pages/Monitor';
-import AuditLogs from '@/pages/AuditLogs';
 import Layout from '@/components/Layout';
+
+const Settings = React.lazy(() => import('@/pages/Settings'));
+const ApiKeys = React.lazy(() => import('@/pages/ApiKeys'));
+const Monitor = React.lazy(() => import('@/pages/Monitor'));
+const AuditLogs = React.lazy(() => import('@/pages/AuditLogs'));
 
 export default function App() {
   const { setUser, setIsAuthenticated, isAuthenticated, setIsLoading } = useStore();
@@ -46,6 +47,11 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-apple-blue border-t-transparent rounded-full animate-spin" />
+        </div>
+      }>
       <Routes>
         <Route path="/" element={
           isAuthenticated ? <Navigate to="/home" /> : <Login />
@@ -96,6 +102,7 @@ export default function App() {
           )}
       />
       </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }
