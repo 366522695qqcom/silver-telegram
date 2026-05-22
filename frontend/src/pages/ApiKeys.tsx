@@ -331,17 +331,17 @@ export default function ApiKeys() {
                         onClick={() => handleToggleStatus(apiKey)}
                         disabled={isToggling === apiKey.id}
                         className="flex items-center gap-2 disabled:opacity-50"
-                        title={apiKey.enabled ? '点击禁用' : '点击启用'}
+                        title={Number(apiKey.enabled) === 1 ? '点击禁用' : '点击启用'}
                       >
                         {isToggling === apiKey.id ? (
                           <RefreshCw className="w-4 h-4 animate-spin text-apple-blue" />
-                        ) : apiKey.enabled ? (
+                        ) : Number(apiKey.enabled) === 1 ? (
                           <ToggleRight className="w-5 h-5 text-green-500" />
                         ) : (
                           <ToggleLeft className="w-5 h-5 text-gray-400" />
                         )}
-                        <span className={`text-sm font-medium ${apiKey.enabled ? 'text-green-600' : 'text-gray-400'}`}>
-                          {apiKey.enabled ? '启用' : '禁用'}
+                        <span className={`text-sm font-medium ${Number(apiKey.enabled) === 1 ? 'text-green-600' : 'text-gray-400'}`}>
+                          {Number(apiKey.enabled) === 1 ? '启用' : '禁用'}
                         </span>
                       </button>
                     </td>

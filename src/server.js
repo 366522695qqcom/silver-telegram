@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
-const { initializeDatabase } = require('./utils/db');
+const { initializeDatabase, query } = require('./utils/db');
 
 const authRoutes = require('./routes/auth');
 const providersRoutes = require('./routes/providers');
@@ -80,6 +80,23 @@ const startDbInit = () => {
     });
   return dbInitPromise;
 };
+
+app.get('/api/debug-keys', async (req, res) => {
+  try {
+    const result = await query('SELECT id, name, enabled FROM api_keys LIMIT 10');
+    res.json({
+      keys: result.rows.map(r => ({
+        id: r.id?.substring(0, 8),
+        name: r.name,
+        enabled: r.enabled,
+        enabledType: typeof r.enabled,
+        enabledRaw: JSON.stringify(r.enabled),
+      })),
+    });
+  } catch (e) {
+    res.json({ error: e.message });
+  }
+});
 
 app.get('/api/ping', async (req, res) => {
   const start = Date.now();

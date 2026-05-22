@@ -39,6 +39,7 @@ const extractTursoValue = (val) => {
   if (!val || val.type === 'null') return null;
   if (val.type === 'blob') return Buffer.from(val.base64 || '', 'base64');
   if (val.type === 'integer') return Number(val.value);
+  if (val.type === 'float') return Number(val.value);
   return val.value ?? null;
 };
 

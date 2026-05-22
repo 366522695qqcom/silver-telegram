@@ -94,7 +94,8 @@ router.post('/:id/toggle', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'API key not found' });
     }
 
-    const newEnabled = existing.rows[0].enabled === 1 ? 0 : 1;
+    const currentEnabled = Number(existing.rows[0].enabled);
+    const newEnabled = currentEnabled === 1 ? 0 : 1;
     await run('UPDATE api_keys SET enabled = ? WHERE id = ? AND user_id = ?', [newEnabled, req.params.id, req.user.id]);
 
     const result = await query('SELECT id, name, "key", enabled, created_at, expires_at FROM api_keys WHERE id = ?', [req.params.id]);

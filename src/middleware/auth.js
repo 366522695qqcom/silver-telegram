@@ -61,7 +61,7 @@ const authenticateApiKey = async (req, res, next) => {
 
     const apiKeyData = result.rows[0];
 
-    if (apiKeyData.enabled !== 1) {
+    if (Number(apiKeyData.enabled) !== 1) {
       return res.status(401).json({ error: 'API key is disabled' });
     }
 
