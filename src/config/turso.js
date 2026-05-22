@@ -58,7 +58,7 @@ const executeTurso = async (sql, params = []) => {
     return { rows: result.rows, rowsAffected: result.rowsAffected || 0 };
   }
 
-  const baseUrl = url.replace(/\/$/, '');
+  const baseUrl = url.replace('libsql://', 'https://').replace(/\/$/, '');
   const pipelineUrl = `${baseUrl}${TURSO_PIPELINE}`;
 
   const timeout = parseInt(process.env.DB_CONNECT_TIMEOUT, 10) || 10000;
