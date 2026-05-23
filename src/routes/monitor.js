@@ -96,7 +96,7 @@ router.get('/daily', authenticateToken, async (req, res) => {
         SUM(CASE WHEN status_code = 200 THEN 1 ELSE 0 END) as success_count
       FROM requests 
       WHERE api_key_id IN (SELECT id FROM api_keys WHERE user_id = ?)
-        AND created_at >= datetime('now', '-6 days')
+        AND created_at >= datetime('now', 'start of day', '-6 days')
       GROUP BY date
       ORDER BY date
     `, [req.user.id]);
