@@ -13,7 +13,10 @@ router.get('/', authenticateToken, async (req, res) => {
       'SELECT id, provider_name, provider_type, base_url, enabled, created_at, api_key, avg_latency, last_success_at, last_failed_at FROM providers WHERE user_id = ?',
       [req.user.id]
     );
-    res.json(result.rows);
+    res.json(result.rows.map(row => ({
+      ...row,
+      avg_latency: row.avg_latency != null ? Math.round(Number(row.avg_latency)) : null,
+    })));
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -91,8 +94,10 @@ router.post('/', authenticateToken, async (req, res) => {
       [id]
     );
 
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
+    res.status(201).json({
+      ...result.rows[0],
+      avg_latency: result.rows[0].avg_latency != null ? Math.round(Number(result.rows[0].avg_latency)) : null,
+    });  } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -136,7 +141,10 @@ router.put('/:id', authenticateToken, async (req, res) => {
     await run(`UPDATE providers SET ${updateFields.join(', ')} WHERE id = ? AND user_id = ?`, updateValues);
 
     const result = await query('SELECT id, provider_name, provider_type, base_url, enabled, created_at, api_key, avg_latency, last_success_at, last_failed_at FROM providers WHERE id = ?', [req.params.id]);
-    res.json(result.rows[0]);
+    res.json({
+      ...result.rows[0],
+      avg_latency: result.rows[0].avg_latency != null ? Math.round(Number(result.rows[0].avg_latency)) : null,
+    });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }

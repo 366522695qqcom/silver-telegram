@@ -326,7 +326,7 @@ const ProviderDetail: React.FC<ProviderDetailProps> = React.memo(({
                 <div className="grid grid-cols-3 gap-4">
                   <div className="text-center p-4 apple-gray-bg rounded-apple-md">
                     <p className="text-2xl font-bold text-apple-text mb-1">
-                      {(selectedProvider.avg_latency ?? 0) > 0 ? `${selectedProvider.avg_latency}ms` : '--'}
+                      {(selectedProvider.avg_latency ?? 0) > 0 ? `${Math.round(selectedProvider.avg_latency)}ms` : '--'}
                     </p>
                     <p className="text-xs text-apple-text-secondary">平均延迟</p>
                   </div>
