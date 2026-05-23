@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authAPI } from '@/services/api';
-import { useStore } from '@/store';
+import { useAuthStore } from '@/store';
 import { Lock, Mail, Eye, EyeOff, Sparkles } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { setUser, setIsAuthenticated, setError } = useStore();
+  const setUser = useAuthStore(s => s.setUser);
+  const setIsAuthenticated = useAuthStore(s => s.setIsAuthenticated);
+  const setError = useAuthStore(s => s.setError);
+  const error = useAuthStore(s => s.error);
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,7 +33,6 @@ export default function Login() {
         ? await authAPI.login({ email, password })
         : await authAPI.register({ email, password });
 
-      localStorage.setItem('token', result.token);
       setUser(result.user);
       setIsAuthenticated(true);
       setError(null);
@@ -58,9 +60,9 @@ export default function Login() {
             </p>
           </div>
 
-          {useStore.getState().error && (
+          {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-apple-sm text-red-600 text-sm animate-apple-fade-in">
-              {useStore.getState().error}
+              {error}
             </div>
           )}
 

@@ -37,6 +37,7 @@ router.post('/register', authLimiter, async (req, res) => {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
     });
 
     res.status(201).json({ user, token });
@@ -73,6 +74,7 @@ router.post('/login', authLimiter, async (req, res) => {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
     });
 
     res.json({ user: { id: user.id, email: user.email, name: user.name }, token });
