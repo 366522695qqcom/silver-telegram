@@ -113,9 +113,12 @@ export const providersAPI = {
     });
   },
 
-  getModels: async (providerId?: string): Promise<ModelListResponse> => {
-    const url = providerId ? `/providers/${providerId}/models` : '/providers/models';
-    return request(url);
+  getModels: async (providerId?: string, filter?: string): Promise<ModelListResponse> => {
+    let url = providerId ? `/providers/${providerId}/models` : '/providers/models';
+    if (filter) {
+      url += `?filter=${encodeURIComponent(filter)}`;
+    }
+    return request(url, {}, 30000);
   },
 };
 

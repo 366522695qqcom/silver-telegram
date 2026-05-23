@@ -18,15 +18,18 @@ interface ModelSelectorProps {
   isFetchingModels: boolean;
   isAddingModels: boolean;
   existingModelIds: Set<string>;
+  modelFilter: string;
   onClose: () => void;
   onSearchQueryChange: (query: string) => void;
   onSelectAll: (ids: string[]) => void;
   onDeselectAll: () => void;
   onToggleModel: (modelId: string) => void;
   onAddSelectedModels: () => void;
+  onFilterChange: (filter: string) => void;
+  onRefetchWithFilter: (filter: string) => void;
 }
 
-const ModelSelector: React.FC<ModelSelectorProps> = React.memo(({
+const ModelSelector: React.FC<ModelSelectorProps> = React.memo(({ 
   showModelSelector,
   availableModels,
   selectedModels,
@@ -34,12 +37,15 @@ const ModelSelector: React.FC<ModelSelectorProps> = React.memo(({
   isFetchingModels,
   isAddingModels,
   existingModelIds,
+  modelFilter,
   onClose,
   onSearchQueryChange,
   onSelectAll,
   onDeselectAll,
   onToggleModel,
   onAddSelectedModels,
+  onFilterChange,
+  onRefetchWithFilter,
 }) => {
   if (!showModelSelector) return null;
 
@@ -69,10 +75,21 @@ const ModelSelector: React.FC<ModelSelectorProps> = React.memo(({
                 className="apple-input w-full pl-9"
               />
             </div>
-            <div className="flex gap-2">
-              <button onClick={() => onSelectAll(filteredModels.map(m => m.id))} className="text-xs text-purple-600 hover:text-purple-700 font-medium">全选</button>
-              <button onClick={onDeselectAll} className="text-xs text-apple-text-secondary hover:text-apple-text font-medium">取消全选</button>
-            </div>
+            <select
+              value={modelFilter}
+              onChange={(e) => {
+                onFilterChange(e.target.value);
+                onRefetchWithFilter(e.target.value);
+              }}
+              className="apple-input text-sm py-2 px-3 min-w-[100px]"
+            >
+              <option value="">全部模型</option>
+              <option value="free">仅免费模型</option>
+            </select>
+          </div>
+          <div className="flex gap-2 mt-2">
+            <button onClick={() => onSelectAll(filteredModels.map(m => m.id))} className="text-xs text-purple-600 hover:text-purple-700 font-medium">全选</button>
+            <button onClick={onDeselectAll} className="text-xs text-apple-text-secondary hover:text-apple-text font-medium">取消全选</button>
           </div>
         </div>
 

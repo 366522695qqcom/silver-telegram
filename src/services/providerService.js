@@ -19,18 +19,29 @@ class ProviderService {
     const { base_url, api_key, provider_type } = config;
     
     try {
-      let testEndpoint = base_url;
+      let testEndpoint = base_url.trim().replace(/\/$/, '');
+
+      testEndpoint = testEndpoint.replace(/\/chat\/completions$/i, '');
+      testEndpoint = testEndpoint.replace(/\/completions$/i, '');
+      testEndpoint = testEndpoint.replace(/\/embeddings$/i, '');
+      testEndpoint = testEndpoint.replace(/\/messages$/i, '');
+
       const headers = this.buildHeaders(provider_type, api_key);
 
-      if (base_url.includes('/v1') || provider_type === 'openai') {
-        testEndpoint = base_url.replace(/\/$/, '') + '/models';
-      } else if (provider_type === 'anthropic') {
+      if (provider_type === 'anthropic') {
         return { success: true, message: 'Anthropic API key validated (no test endpoint)' };
+      }
+
+      if (testEndpoint.endsWith('/models')) {
+      } else if (testEndpoint.includes('/v1')) {
+        testEndpoint = testEndpoint + '/models';
+      } else {
+        testEndpoint = testEndpoint + '/v1/models';
       }
 
       const response = await axios.get(testEndpoint, getAxiosConfig({ 
         headers, 
-        timeout: 10000, 
+        timeout: 15000, 
         maxRedirects: 5
       }));
       return { success: true, status: response.status, message: 'Connection successful' };
@@ -55,42 +66,49 @@ class ProviderService {
     try {
       const headers = this.buildHeaders(provider_type, api_key);
       
-      let modelsUrl = base_url.trim();
+      let modelsUrl = base_url.trim().replace(/\/$/, '');
+
+      modelsUrl = modelsUrl.replace(/\/chat\/completions$/i, '');
+      modelsUrl = modelsUrl.replace(/\/completions$/i, '');
+      modelsUrl = modelsUrl.replace(/\/embeddings$/i, '');
+      modelsUrl = modelsUrl.replace(/\/messages$/i, '');
       
       if (modelsUrl.endsWith('/models')) {
-        // 已经是 models 端点
       } else if (modelsUrl.includes('/v1')) {
-        modelsUrl = modelsUrl.replace(/\/$/, '') + '/models';
+        modelsUrl = modelsUrl + '/models';
       } else {
-        modelsUrl = modelsUrl.replace(/\/$/, '') + '/v1/models';
+        modelsUrl = modelsUrl + '/v1/models';
       }
       
-      console.log('Fetching models from provider');
+      console.log('Fetching models from:', modelsUrl.replace(api_key, '***'));
       
       const response = await axios.get(modelsUrl, getAxiosConfig({ 
         headers, 
-        timeout: 15000,
+        timeout: 30000,
         maxRedirects: 5
       }));
       
+      let models = [];
+      
       if (response.data?.data) {
-        return response.data.data.map(model => ({
+        models = response.data.data.map(model => ({
           id: model.id,
           name: model.id,
           owned_by: model.owned_by || 'unknown',
+          ...(model.pricing !== undefined ? { pricing: model.pricing } : {}),
+          ...(model.top_provider !== undefined ? { top_provider: model.top_provider } : {}),
         }));
-      }
-      
-      if (Array.isArray(response.data)) {
-        return response.data.map(model => ({
+      } else if (Array.isArray(response.data)) {
+        models = response.data.map(model => ({
           id: model.id || model.name,
           name: model.id || model.name,
           owned_by: model.owned_by || 'unknown',
         }));
+      } else {
+        console.error('Unexpected response format from provider');
       }
 
-      console.error('Unexpected response format from provider');
-      return [];
+      return models;
       
     } catch (error) {
       console.error(`Failed to fetch models from ${base_url}:`, error.message);

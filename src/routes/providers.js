@@ -219,16 +219,33 @@ router.get('/:id/models', authenticateToken, async (req, res) => {
 
     const provider = result.rows[0];
     try {
-      const models = await providerService.getModels({
+      let models = await providerService.getModels({
         base_url: provider.base_url,
         api_key: getFirstApiKey(provider.api_key),
         provider_type: provider.provider_type,
       });
 
+      const filter = req.query.filter;
+      if (filter === 'free') {
+        models = models.filter(m => {
+          const id = m.id.toLowerCase();
+          if (id.includes(':free')) return true;
+          if (id.includes('-free')) return true;
+          if (id.endsWith('free')) return true;
+          if (m.pricing) {
+            const prompt = parseFloat(m.pricing.prompt);
+            const completion = parseFloat(m.pricing.completion);
+            if (prompt === 0 && completion === 0) return true;
+          }
+          return false;
+        });
+      }
+
       res.json({
         provider_id: provider.id,
         provider_name: provider.provider_name,
         models,
+        total_count: models.length,
       });
     } catch (modelError) {
       res.json({
