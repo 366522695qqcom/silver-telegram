@@ -123,13 +123,13 @@ async function handleChatCompletion(req, res) {
       );
 
       await routerService.recordProviderStatus(provider.id, false, latency);
-      res.status(result.status_code || 500).json({ error: result.error });
+      res.status(result.status_code || 500).json({ error: result.error || 'Provider returned an error' });
     }
   } catch (error) {
     const latency = Date.now() - startTime;
     await run(
       'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, error_message) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [requestId, req.apiKey.id, provider?.provider_name || 'unknown', req.body?.model || 'unknown', 500, latency, error.message]
+      [requestId, req.apiKey.id, provider?.provider_name || 'unknown', req.body?.model || 'unknown', 500, latency, error.message || 'Unknown error']
     );
 
     if (provider) {
@@ -190,13 +190,13 @@ async function handleEmbeddings(req, res) {
         'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, error_message) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [requestId, req.apiKey.id, provider.provider_name, model, result.status_code || 500, latency, result.error]
       );
-      res.status(result.status_code || 500).json({ error: result.error });
+      res.status(result.status_code || 500).json({ error: result.error || 'Provider returned an error' });
     }
   } catch (error) {
     const latency = Date.now() - startTime;
     await run(
       'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, error_message) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [requestId, req.apiKey.id, 'unknown', req.body?.model || 'unknown', 500, latency, error.message]
+      [requestId, req.apiKey.id, 'unknown', req.body?.model || 'unknown', 500, latency, error.message || 'Unknown error']
     );
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
