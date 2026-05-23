@@ -78,15 +78,20 @@ const startDbInit = () => {
 
 app.get('/api/debug-keys', async (req, res) => {
   try {
-    const result = await query('SELECT id, name, enabled FROM api_keys LIMIT 10');
+    const [keys, reqCount, sampleReqs] = await Promise.all([
+      query('SELECT id, name, enabled FROM api_keys LIMIT 10'),
+      query('SELECT COUNT(*) as count FROM requests'),
+      query('SELECT id, provider, model, status_code, latency FROM requests LIMIT 5'),
+    ]);
     res.json({
-      keys: result.rows.map(r => ({
+      apiKeys: keys.rows.map(r => ({
         id: r.id?.substring(0, 8),
         name: r.name,
         enabled: r.enabled,
         enabledType: typeof r.enabled,
-        enabledRaw: JSON.stringify(r.enabled),
       })),
+      totalRequests: reqCount.rows[0]?.count,
+      sampleRequests: sampleReqs.rows,
     });
   } catch (e) {
     res.json({ error: e.message });

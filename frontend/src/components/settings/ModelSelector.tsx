@@ -17,6 +17,7 @@ interface ModelSelectorProps {
   modelSearchQuery: string;
   isFetchingModels: boolean;
   isAddingModels: boolean;
+  existingModelIds: Set<string>;
   onClose: () => void;
   onSearchQueryChange: (query: string) => void;
   onSelectAll: (ids: string[]) => void;
@@ -32,6 +33,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = React.memo(({
   modelSearchQuery,
   isFetchingModels,
   isAddingModels,
+  existingModelIds,
   onClose,
   onSearchQueryChange,
   onSelectAll,
@@ -86,47 +88,56 @@ const ModelSelector: React.FC<ModelSelectorProps> = React.memo(({
             </div>
           ) : (
             <div className="space-y-1">
-              {filteredModels.map(m => (
-                <label
-                  key={m.id}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-apple-sm hover:bg-apple-gray-bg cursor-pointer transition-colors"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedModels.has(m.id)}
-                    onChange={() => onToggleModel(m.id)}
-                    className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-apple-text truncate">{m.id}</p>
-                    <p className="text-xs text-apple-text-secondary">{m.owned_by}</p>
-                  </div>
-                  <div className="flex gap-1 flex-shrink-0">
-                    {(() => {
-                      const info = inferModelInfo(m.id);
-                      return (
-                        <>
-                          {info.capabilities?.vision && (
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-600">
-                              <Eye className="w-2.5 h-2.5" />视觉
-                            </span>
-                          )}
-                          {info.capabilities?.reasoning && (
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-600">
-                              <Brain className="w-2.5 h-2.5" />推理
-                            </span>
-                          )}
-                          {info.capabilities?.tool_use && (
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-50 text-green-600">
-                              <Wrench className="w-2.5 h-2.5" />工具
-                            </span>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </div>
-                </label>
-              ))}
+              {filteredModels.map(m => {
+                const isExisting = existingModelIds.has(m.id);
+                return (
+                  <label
+                    key={m.id}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-apple-sm transition-colors ${
+                      isExisting ? 'bg-gray-50 cursor-not-allowed opacity-60' : 'hover:bg-apple-gray-bg cursor-pointer'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedModels.has(m.id)}
+                      onChange={() => onToggleModel(m.id)}
+                      disabled={isExisting}
+                      className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 disabled:opacity-40"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-apple-text truncate">{m.id}</p>
+                      <p className="text-xs text-apple-text-secondary">{m.owned_by}</p>
+                    </div>
+                    {isExisting && (
+                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-gray-200 text-gray-500 flex-shrink-0">已添加</span>
+                    )}
+                    <div className="flex gap-1 flex-shrink-0">
+                      {(() => {
+                        const info = inferModelInfo(m.id);
+                        return (
+                          <>
+                            {info.capabilities?.vision && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-600">
+                                <Eye className="w-2.5 h-2.5" />视觉
+                              </span>
+                            )}
+                            {info.capabilities?.reasoning && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-600">
+                                <Brain className="w-2.5 h-2.5" />推理
+                              </span>
+                            )}
+                            {info.capabilities?.tool_use && (
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-50 text-green-600">
+                                <Wrench className="w-2.5 h-2.5" />工具
+                              </span>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </label>
+                );
+              })}
             </div>
           )}
         </div>

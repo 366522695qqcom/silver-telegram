@@ -253,7 +253,12 @@ export default function Settings() {
     if (selectedModels.size === 0 || !selectedProvider) return;
     setShowModelSelector(false);
     setIsAddingModels(true);
-    const modelsToAdd = availableModels.filter(m => selectedModels.has(m.id));
+    const existingIds = new Set(customModels.filter(cm => cm.provider_id === selectedProvider.id).map(cm => cm.model_id));
+    const modelsToAdd = availableModels.filter(m => selectedModels.has(m.id) && !existingIds.has(m.id));
+    if (modelsToAdd.length === 0) {
+      setIsAddingModels(false);
+      return;
+    }
     const createData = modelsToAdd.map(m => {
       const inferred = inferModelInfo(m.id);
       return {
@@ -268,7 +273,9 @@ export default function Settings() {
     });
     try {
       const newModels = await customModelsAPI.batchCreate(createData);
-      setCustomModels([...newModels, ...customModels]);
+      const existingIdsSet = new Set(customModels.map(m => m.id));
+      const trulyNew = newModels.filter(m => !existingIdsSet.has(m.id));
+      setCustomModels([...trulyNew, ...customModels]);
     } catch (error) {
       console.error('Failed to add models:', error);
       alert('添加模型失败: ' + (error as Error).message);
@@ -493,6 +500,7 @@ export default function Settings() {
       modelSearchQuery={modelSearchQuery}
       isFetchingModels={isFetchingModels}
       isAddingModels={isAddingModels}
+      existingModelIds={new Set(customModels.filter(cm => cm.provider_id === selectedProvider?.id).map(cm => cm.model_id))}
       onClose={() => setShowModelSelector(false)}
       onSearchQueryChange={setModelSearchQuery}
       onSelectAll={handleSelectAllModels}

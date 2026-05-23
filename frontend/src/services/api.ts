@@ -179,11 +179,17 @@ export const monitorAPI = {
   getStats: async (): Promise<{
     total_requests: number;
     success_rate: number;
-    avg_latency: number;
+    avg_latency_ms: number;
+    today_requests: number;
+    provider_stats: { provider: string; count: number; avg_latency_ms: number; total_cost: number }[];
     top_providers: { provider: string; count: number }[];
     top_models: { model: string; count: number }[];
   }> => {
     return request('/monitor/stats');
+  },
+
+  getDaily: async (): Promise<{ date: string; label: string; count: number; success_count: number }[]> => {
+    return request('/monitor/daily');
   },
 
   getRealtimeStats: async (): Promise<{

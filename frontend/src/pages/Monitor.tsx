@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { monitorAPI } from '@/services/api';
 import type { Request, Stats } from '@/types';
 import { Activity, CheckCircle, XCircle, Clock, AlertTriangle, RefreshCw } from 'lucide-react';
-import { io, Socket } from 'socket.io-client';
 
 export default function Monitor() {
   const [requests, setRequests] = useState<Request[]>([]);
@@ -14,61 +13,36 @@ export default function Monitor() {
     activeConnections: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
-  const socketRef = useRef<Socket | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    const fetchRequests = async () => {
-      try {
-        const data = await monitorAPI.getRequests(1, 50);
-        setRequests(data);
-      } catch (error) {
-        console.error('Failed to fetch requests:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchRequests();
-  }, []);
-
-  useEffect(() => {
+  const fetchAllData = async () => {
     try {
-      const socketUrl = window.location.hostname === 'localhost'
-        ? 'http://localhost:3000'
-        : undefined;
-      if (socketUrl) {
-        socketRef.current = io(socketUrl, {
-          reconnectionAttempts: 3,
-          timeout: 5000,
-        });
-        socketRef.current.on('stats', (newStats: Stats) => {
-          setStats(newStats);
-        });
-        socketRef.current.on('connect_error', () => {
-          socketRef.current?.disconnect();
-        });
-      }
-    } catch {
-      // socket.io not available (Vercel serverless)
+      const [requestData, statsData] = await Promise.all([
+        monitorAPI.getRequests(1, 50),
+        monitorAPI.getRealtimeStats(),
+      ]);
+      setRequests(requestData);
+      setStats(statsData);
+    } catch (error) {
+      console.error('Failed to fetch monitor data:', error);
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchAllData();
+
+    intervalRef.current = setInterval(fetchAllData, 15000);
 
     return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
+      if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, []);
 
   const refreshData = async () => {
     setIsLoading(true);
-    try {
-      const data = await monitorAPI.getRequests(1, 50);
-      setRequests(data);
-    } catch (error) {
-      console.error('Failed to refresh requests:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    await fetchAllData();
   };
 
   const formatDate = (dateString: string) => {
@@ -124,7 +98,7 @@ export default function Monitor() {
     {
       icon: Clock,
       label: '平均延迟',
-      value: `${stats.avgLatency}ms`,
+      value: `${Math.round(stats.avgLatency)}ms`,
       color: 'purple',
       badge: 'apple-badge-neutral',
     },
@@ -259,7 +233,7 @@ export default function Monitor() {
                   </div>
                   <div className="flex items-center justify-between text-sm text-apple-text-secondary">
                     <span>{formatDate(request.created_at)}</span>
-                    <span className="text-apple-text font-medium">延迟: {request.latency}ms</span>
+                    <span className="text-apple-text font-medium">延迟: {Math.round(Number(request.latency))}ms</span>
                     {request.prompt_tokens > 0 && (
                       <span className="apple-badge-neutral">
                         Tokens: {request.prompt_tokens} + {request.completion_tokens || 0}
@@ -284,6 +258,7 @@ export default function Monitor() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-apple-success opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-apple-success"></span>
             </span>
+            <span className="text-xs text-apple-text-tertiary ml-1">15秒刷新</span>
           </div>
           
           <div className="space-y-6">
@@ -338,7 +313,7 @@ export default function Monitor() {
               <div className="flex items-center justify-between">
                 <span className="text-purple-600">平均延迟</span>
                 <span className="text-2xl font-semibold text-purple-600 apple-stat-value">
-                  {stats.avgLatency}ms
+                  {Math.round(stats.avgLatency)}ms
                 </span>
               </div>
             </div>
