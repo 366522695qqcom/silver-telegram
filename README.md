@@ -22,57 +22,150 @@
 - Recharts (图表)
 - Tailwind CSS (样式)
 
-## 快速开始
+## 部署教程
 
-### 环境要求
+### 方式一：Vercel 一键部署（推荐）
+
+#### 第 1 步：获取 Turso 数据库（免费）
+
+本项目使用 [Turso](https://turso.tech/) 作为数据库，免费套餐足够个人使用。
+
+1. 注册 Turso 账号：访问 [https://turso.tech/](https://turso.tech/)，使用 GitHub 登录
+2. 安装 Turso CLI：
+   ```bash
+   curl -sSfL https://get.tur.so/install.sh | bash
+   ```
+3. 登录并创建数据库：
+   ```bash
+   turso auth login
+   turso db create ai-gateway
+   ```
+4. 获取数据库连接信息：
+   ```bash
+   # 获取数据库 URL
+   turso db show ai-gateway --url
+   # 输出类似：libsql://ai-gateway-xxx.turso.io
+
+   # 创建 Auth Token
+   turso db tokens create ai-gateway
+   # 输出一串 token 字符串
+   ```
+
+> 也可以在 Turso 网页控制台 [https://turso.tech/app](https://turso.tech/app) 中直接创建数据库和获取连接信息。
+
+#### 第 2 步：Fork 项目
+
+1. 访问项目 GitHub 仓库
+2. 点击右上角 **Fork** 按钮，将项目复制到你的 GitHub 账号下
+
+#### 第 3 步：在 Vercel 中导入项目
+
+1. 访问 [https://vercel.com/new](https://vercel.com/new)
+2. 选择你 Fork 的仓库，点击 **Import**
+3. 配置项保持默认即可（构建脚本已内置）
+
+#### 第 4 步：配置环境变量
+
+在 Vercel 的 **Settings → Environment Variables** 中添加以下变量：
+
+| 变量名 | 必填 | 说明 | 示例值 |
+|--------|------|------|--------|
+| `TURSO_DATABASE_URL` | ✅ | Turso 数据库连接地址 | `libsql://ai-gateway-xxx.turso.io` |
+| `TURSO_AUTH_TOKEN` | ✅ | Turso 数据库认证 Token | `eyJhbGciOi...` |
+| `JWT_SECRET` | ✅ | JWT 签名密钥，随意填写一串随机字符 | `my-s3cret-key-abc123` |
+| `ADMIN_EMAIL` | ✅ | 管理员登录邮箱 | `admin@example.com` |
+| `ADMIN_PASSWORD` | ✅ | 管理员登录密码 | `MySecureP@ss123` |
+| `JWT_EXPIRES_IN` | ❌ | Token 过期时间，默认 `7d` | `7d` |
+
+> **说明**：
+> - `ADMIN_EMAIL` 和 `ADMIN_PASSWORD` 是你登录后台的账号密码，自己设定即可
+> - `JWT_SECRET` 建议使用随机字符串，如 `openssl rand -hex 32` 生成
+> - 数据库表会在首次启动时自动创建，无需手动建表
+
+#### 第 5 步：部署
+
+1. 配置好环境变量后，点击 **Deploy**
+2. 等待构建完成（约 1-2 分钟）
+3. 访问 Vercel 分配的域名，使用 `ADMIN_EMAIL` 和 `ADMIN_PASSWORD` 登录
+
+#### 第 6 步：开始使用
+
+1. 登录后进入 **设置** 页面，添加 AI 提供商（如 OpenAI、Anthropic 等）
+2. 在 **API 密钥** 页面创建一个 API Key
+3. 使用该 API Key 调用 AI 接口：
+   ```bash
+   curl -X POST https://your-domain.vercel.app/api/v1/chat/completions \
+     -H "Content-Type: application/json" \
+     -H "X-API-Key: YOUR_API_KEY" \
+     -d '{
+       "model": "gpt-4",
+       "messages": [{"role": "user", "content": "你好"}]
+     }'
+   ```
+
+---
+
+### 方式二：本地开发
+
+#### 环境要求
 
 - Node.js >= 20
 
-### 安装依赖
+#### 安装依赖
 
 ```bash
 npm install
 cd frontend && npm install
 ```
 
-### 配置环境变量
-
-复制 `.env.example` 为 `.env` 并配置：
+#### 配置环境变量
 
 ```bash
 cp .env.example .env
 ```
 
-编辑 `.env` 文件：
+编辑 `.env` 文件，最少只需配置 5 个变量：
 
 ```env
-NODE_ENV=development
-PORT=3000
+# 数据库 - 本地开发可使用本地 SQLite 文件
+TURSO_DATABASE_URL=file:./local.db
+TURSO_AUTH_TOKEN=
 
-# 数据库 (Turso)
-TURSO_DATABASE_URL=libsql://your-db.turso.io
-TURSO_AUTH_TOKEN=your_turso_auth_token
+# JWT 密钥 - 随意填写
+JWT_SECRET=dev-secret-key
 
-# JWT
-JWT_SECRET=your_jwt_secret_key_here
-JWT_EXPIRES_IN=7d
-
-# 管理员账户 (登录凭证)
+# 登录凭证 - 自己设定
 ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=your_secure_password
+ADMIN_PASSWORD=admin123
 ```
 
-> **注意**：`ADMIN_EMAIL` 和 `ADMIN_PASSWORD` 是登录系统的唯一凭证，注册功能已移除。首次登录时会自动创建用户。
+> 本地开发时 `TURSO_AUTH_TOKEN` 可以留空，`TURSO_DATABASE_URL` 使用 `file:./local.db` 即可在本地创建 SQLite 文件。
 
-### 启动服务
+#### 启动服务
 
 ```bash
-# 开发模式
-npm run dev
+# 开发模式（前后端分别启动）
+npm run dev          # 后端 :3000
+cd frontend && npm run dev  # 前端 :5173
 
-# 构建
+# 或构建后运行
 node vercel-build.js
 ```
+
+---
+
+## 环境变量说明
+
+| 变量名 | 必填 | 默认值 | 说明 |
+|--------|------|--------|------|
+| `TURSO_DATABASE_URL` | ✅ | - | Turso 数据库连接地址。本地开发用 `file:./local.db`，线上用 Turso 提供的 `libsql://` 地址 |
+| `TURSO_AUTH_TOKEN` | 线上必填 | - | Turso 数据库认证 Token。本地 SQLite 不需要 |
+| `JWT_SECRET` | ✅ | - | JWT 签名密钥，用于生成登录 Token |
+| `ADMIN_EMAIL` | ✅ | - | 管理员登录邮箱，与 `ADMIN_PASSWORD` 配合使用 |
+| `ADMIN_PASSWORD` | ✅ | - | 管理员登录密码 |
+| `JWT_EXPIRES_IN` | ❌ | `7d` | Token 过期时间 |
+| `PORT` | ❌ | `3000` | 本地开发端口号 |
+| `NODE_ENV` | ❌ | `development` | 运行环境 |
 
 ## API使用
 
@@ -229,15 +322,6 @@ curl -X GET http://localhost:3000/api/monitor/stats \
 │   └── project-spec.md    # 项目规范文档
 └── package.json
 ```
-
-## 部署
-
-项目支持 Vercel 部署：
-
-1. Fork 本仓库
-2. 在 Vercel 中导入项目
-3. 配置环境变量（`TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `JWT_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`）
-4. 部署
 
 ## 许可证
 
