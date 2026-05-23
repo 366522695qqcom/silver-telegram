@@ -81,7 +81,7 @@ app.get('/api/debug-keys', async (req, res) => {
     const [keys, reqCount, sampleReqs] = await Promise.all([
       query('SELECT id, name, enabled FROM api_keys LIMIT 10'),
       query('SELECT COUNT(*) as count FROM requests'),
-      query('SELECT id, provider, model, status_code, latency FROM requests LIMIT 5'),
+      query('SELECT id, provider, model, status_code, latency, created_at FROM requests ORDER BY created_at DESC LIMIT 5'),
     ]);
     res.json({
       apiKeys: keys.rows.map(r => ({
@@ -95,6 +95,38 @@ app.get('/api/debug-keys', async (req, res) => {
     });
   } catch (e) {
     res.json({ error: e.message });
+  }
+});
+
+app.get('/api/debug-stats', async (req, res) => {
+  try {
+    startDbInit();
+    await Promise.race([
+      dbInitPromise,
+      new Promise(r => setTimeout(r, 5000))
+    ]);
+
+    const [reqCount, sampleReqs, keyCount, providerCount, userCount, todayCount] = await Promise.all([
+      query('SELECT COUNT(*) as count FROM requests'),
+      query('SELECT id, api_key_id, provider, model, status_code, latency, error_message, created_at FROM requests ORDER BY created_at DESC LIMIT 10'),
+      query('SELECT COUNT(*) as count FROM api_keys'),
+      query('SELECT COUNT(*) as count FROM providers'),
+      query('SELECT COUNT(*) as count FROM users'),
+      query("SELECT COUNT(*) as count FROM requests WHERE created_at >= datetime('now', '-8 hours', 'start of day', '+8 hours')"),
+    ]);
+
+    res.json({
+      dbStatus: dbReady ? 'connected' : 'error',
+      dbError: dbReady ? null : dbErrorType,
+      requestCount: Number(reqCount.rows[0]?.count) || 0,
+      todayRequestCount: Number(todayCount.rows[0]?.count) || 0,
+      apiKeyCount: Number(keyCount.rows[0]?.count) || 0,
+      providerCount: Number(providerCount.rows[0]?.count) || 0,
+      userCount: Number(userCount.rows[0]?.count) || 0,
+      sampleRequests: sampleReqs.rows.slice(0, 5),
+    });
+  } catch (e) {
+    res.json({ error: e.message, dbStatus: dbReady ? 'connected' : 'error' });
   }
 });
 
