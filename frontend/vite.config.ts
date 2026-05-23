@@ -14,4 +14,20 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-recharts': ['recharts'],
+          'vendor-lucide': ['lucide-react'],
+          'vendor-zustand': ['zustand'],
+          'vendor-router': ['react-router-dom'],
+          'vendor-socket': ['socket.io-client'],
+          'vendor-cookie': ['js-cookie'],
+        },
+      },
+    },
+  },
 });

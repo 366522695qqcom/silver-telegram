@@ -14,28 +14,61 @@
 - **Apple风格设计**：前端采用精致、简洁的Apple设计风格
 - **本地友好**：使用SQLite数据库，简化本地部署和数据迁移
 
-### 1.3 需求分析
-| 需求点 | 来源 | 说明 |
-|-------|------|------|
-| 个人开发者工具 | 用户选择A选项 | 面向个人开发者使用 |
-| 支持全部AI厂商 | 用户选择D选项 | 通用API代理，支持任意OpenAI兼容接口 |
-| 实时监控 | 用户明确要求 | 需要实时监控API调用状况 |
-| Node.js + Express | 用户选择B选项 | 技术栈选择 |
-| Web Dashboard | 用户选择A选项 | 可视化监控界面 |
-| SQLite | 实际实现 | 使用SQLite简化本地部署 |
-| 远程访问 | 用户选择E选项 | VPS或云服务器部署 |
-| 无需厂商适配 | 用户明确要求 | 通用API代理模式 |
-| 获取模型列表 | 用户明确要求 | 动态获取厂商模型 |
-| 连通性测试 | 用户明确要求 | 测试API是否可用 |
-| 审计日志 | 用户要求 | 增加操作审计记录 |
-| Apple设计风格 | 用户要求 | 前端UI采用Apple风格设计 |
-| Cookie认证 | 用户要求 | 支持Cookie保存用户信息 |
+### 1.3 技术栈总览
+
+| 层级 | 技术 | 版本 |
+|------|------|------|
+| **后端运行时** | Node.js | LTS |
+| **后端框架** | Express.js | 4.x |
+| **数据库** | SQLite (better-sqlite3) | — |
+| **认证** | JWT + bcrypt + Cookie | — |
+| **实时通信** | Socket.IO | 4.x |
+| **HTTP 客户端** | Axios | — |
+| **前端框架** | React + TypeScript | 19.x |
+| **构建工具** | Vite | 6.x |
+| **样式框架** | TailwindCSS | 3.x |
+| **状态管理** | Zustand | 5.x |
+| **图表库** | Recharts | 2.x |
+| **图标库** | Lucide React | — |
+| **路由** | React Router | 7.x |
+| **部署平台** | Vercel Serverless | — |
+
+### 1.4 部署架构
+
+```
+┌─────────────────────────────────────────────────┐
+│                  Vercel Edge                     │
+│  ┌───────────────────────────────────────────┐  │
+│  │           vercel.json 配置                 │  │
+│  │  - Runtimes: nodejs                       │  │
+│  │  - Build: npm install + Vite build        │  │
+│  │  - Routes: /api/* → api/[[...path]].js    │  │
+│  └───────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────┘
+                        │
+          ┌─────────────┴─────────────┐
+          ▼                           ▼
+┌──────────────────┐     ┌──────────────────────┐
+│  Serverless API  │     │   Static Frontend    │
+│  (Express App)   │     │   (Vite Build)       │
+│                  │     │                      │
+│  api/[[...path]] │     │  dist/assets/*.js    │
+│       .js        │     │  dist/index.html     │
+└────────┬─────────┘     └──────────────────────┘
+         │
+         ▼
+┌──────────────────┐
+│    SQLite DB      │
+│  (libSQL/Turso)  │
+└──────────────────┘
+```
 
 ---
 
 ## 2. 技术架构
 
-### 2.1 整体架构
+### 2.1 整体架构图
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        用户层                                   │
@@ -68,22 +101,9 @@
 │                        数据层                                   │
 │  ┌─────────────────────────────────────────────┐               │
 │  │               SQLite                       │               │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  │               │
-│  │  │ Users    │  │ ApiKeys  │  │ Requests │  │               │
-│  │  │ 用户表   │  │ 密钥表   │  │ 调用记录  │  │               │
-│  │  └──────────┘  └──────────┘  └──────────┘  │               │
-│  │  ┌──────────────────────────────────────┐  │               │
-│  │  │ Providers (厂商配置表)                │  │               │
-│  │  │ - provider_name: 厂商名称             │  │               │
-│  │  │ - provider_type: openai/anthropic    │  │               │
-│  │  │ - base_url: API地址                  │  │               │
-│  │  │ - api_key: 厂商密钥                  │  │               │
-│  │  └──────────────────────────────────────┘  │               │
-│  │  ┌──────────────────────────────────────┐  │               │
-│  │  │ AuditLogs (审计日志表)               │  │               │
-│  │  │ - action: 操作类型                   │  │               │
-│  │  │ - details: 详细信息                  │  │               │
-│  │  └──────────────────────────────────────┘  │               │
+│  │  users | api_keys | providers | requests   │               │
+│  │  audit_logs | routing_rules | batch_tasks │               │
+│  │  tools | async_tasks | cost_configs       │               │
 │  └─────────────────────────────────────────────┘               │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -93,888 +113,397 @@
 | 组件 | 职责 | 技术实现 |
 |-----|------|---------|
 | **API Gateway** | 统一入口，请求路由 | Express.js |
-| **Auth Middleware** | API Key验证 | JWT + bcrypt + Cookie |
+| **Auth Middleware** | API Key验证 + JWT认证 | JWT + bcrypt + Cookie |
 | **Provider Service** | 通用API代理服务 | Axios封装 |
 | **Monitor Service** | 实时监控统计 | Socket.IO |
 | **Router Service** | 智能路由与故障转移 | 自定义算法 |
-| **Batch Service** | 请求批处理与队列管理 | Bull / 自定义队列 |
+| **Batch Service** | 请求批处理与队列管理 | 自定义队列 |
 | **Tool Service** | 函数调用与工具执行 | 安全沙箱 |
 | **Vision Service** | 图像理解与生成 | 多模态API代理 |
 | **Webhook Service** | 回调通知与异步任务 | HTTP Client + 任务队列 |
-| **Database** | 持久化存储 | SQLite (not PostgreSQL) |
+| **Cost Service** | 费用计算与统计 | Token价格匹配 |
+| **Quota Service** | 用户配额管理 | 每日/月度限制 |
+| **Database** | 持久化存储 | SQLite (better-sqlite3) |
 | **Frontend** | Web Dashboard | React 19 + TypeScript + Vite + TailwindCSS |
-| **State Management** | 前端状态管理 | Zustand |
-| **UI Components** | Apple风格设计 | TailwindCSS + Lucide Icons |
+| **State Management** | 前端状态管理 | Zustand (slices: auth, providers, stats) |
 
-### 2.3 支持的API类型
+### 2.3 目录结构
 
-| 类型 | 说明 | 兼容厂商 |
-|-----|------|---------|
-| **openai** | OpenAI兼容接口 | OpenAI、Azure、各种兼容服务 |
-| **anthropic** | Anthropic Claude接口 | Claude API |
+```
+silver-telegram/
+├── api/
+│   └── [[...path]].js          # Vercel Serverless 入口
+├── src/
+│   ├── server.js               # Express 应用主入口
+│   ├── local.db                # SQLite 数据库文件
+│   ├── config/
+│   │   └── index.js            # 环境变量配置
+│   ├── middleware/
+│   │   ├── auth.js             # JWT + API Key 认证中间件
+│   │   └── rateLimit.js        # 速率限制中间件
+│   ├── routes/
+│   │   ├── auth.js             # 注册/登录/登出
+│   │   ├── apiKeys.js          # API Key CRUD
+│   │   ├── providers.js        # 厂商配置 CRUD + 测试/模型列表
+│   │   ├── chat.js             # 聊天补全（核心路由）
+│   │   ├── monitor.js          # 监控统计
+│   │   ├── audit.js            # 审计日志
+│   │   ├── cost.js             # 费用统计
+│   │   ├── routing.js          # 路由规则
+│   │   ├── batch.js            # 批处理
+│   │   ├── tools.js            # 工具注册
+│   │   ├── vision.js           # 图像理解
+│   │   ├── images.js           # 图像生成
+│   │   ├── async.js            # 异步任务
+│   │   └── webhooks.js         # Webhook 回调
+│   ├── services/
+│   │   ├── providerService.js  # 通用 AI API 代理
+│   │   ├── routerService.js    # 智能路由
+│   │   ├── batchService.js     # 批处理
+│   │   ├── toolService.js      # 工具执行
+│   │   ├── visionService.js    # 视觉分析
+│   │   ├── costService.js      # 费用计算
+│   │   ├── quotaService.js     # 配额管理
+│   │   └── auditService.js     # 审计记录
+│   └── utils/
+│       ├── db.js               # SQLite 数据库连接与初始化
+│       ├── logger.js           # 日志系统
+│       ├── cache.js            # Prompt 缓存
+│       └── retry.js            # 自动重试
+├── frontend/
+│   ├── index.html              # SPA 入口
+│   ├── vite.config.ts          # Vite 配置
+│   ├── package.json
+│   └── src/
+│       ├── main.tsx            # React 挂载入口
+│       ├── App.tsx             # 路由 + ErrorBoundary + Suspense
+│       ├── index.css           # Apple 设计 Token + 全局样式
+│       ├── store/
+│       │   └── index.ts        # Zustand Store (auth/providers/stats slices)
+│       ├── services/
+│       │   └── api.ts          # Axios 封装（拦截器、认证）
+│       ├── components/
+│       │   └── ErrorBoundary.tsx
+│       └── pages/
+│           ├── Login.tsx       # 注册/登录
+│           ├── Layout.tsx      # 导航栏布局
+│           ├── Home.tsx        # 仪表盘
+│           ├── Settings.tsx    # 厂商管理
+│           ├── ApiKeys.tsx     # API Key 管理
+│           ├── Monitor.tsx     # 实时监控
+│           └── AuditLogs.tsx   # 审计日志
+├── vercel.json                 # Vercel 部署配置
+├── package.json                # 根依赖
+└── .env.example                # 环境变量模板
+```
+
+### 2.4 数据流
+
+#### 2.4.1 API 调用流程
+
+```
+用户请求 /api/v1/completions
+    │
+    ▼
+api/[[...path]].js  → 加载 Express App
+    │
+    ▼
+Rate Limiting Middleware（检查频率限制）
+    │
+    ▼
+Auth Middleware（JWT/Cookie 认证 + API Key 验证）
+    │
+    ▼
+Chat Route（解析请求参数，获取 provider_id/model/messages）
+    │
+    ▼
+Provider Service（构造厂商 API 请求，代理转发）
+    │
+    ├──→ Router Service（智能选择最佳厂商）
+    │
+    ├──→ Cache Service（检查 Prompt 缓存命中）
+    │
+    ▼
+向厂商 API 发起 HTTP 请求（Axios + 超时 + 重试）
+    │
+    ▼
+记录调用日志 → requests 表（含 token 用量、延迟、费用）
+    │
+    ▼
+Socket.IO 推送实时监控数据 → 前端 Dashboard
+    │
+    ▼
+返回 AI 响应给用户
+```
+
+#### 2.4.2 登录认证流程
+
+```
+POST /api/auth/login
+    │
+    ▼
+Auth Route（验证 email/password）
+    │
+    ▼
+bcrypt.compare(password, hash) → 密码验证
+    │
+    ▼
+jwt.sign({ userId }, JWT_SECRET) → 生成 Token
+    │
+    ▼
+res.cookie('token', jwtToken, { httpOnly, secure, sameSite }) → Cookie
+    │
+    ▼
+前端接入：
+    ├── Cookie 模式：浏览器自动携带
+    └── Bearer Token 模式：X-API-Key Header
+```
 
 ---
 
 ## 3. 数据库设计
 
 ### 3.1 数据库实现说明
-**重要变更**：从PostgreSQL改为SQLite
-- 原因：简化本地部署，减少依赖，方便数据迁移
-- 实现：使用 `better-sqlite3` 库
-- 文件位置：`src/local.db`
-- 初始化：`src/utils/db.js` - 逐条执行SQL语句创建表
+- **引擎**：SQLite（`better-sqlite3` 同步驱动）
+- **文件**：`src/local.db`
+- **初始化**：`src/utils/db.js` 顺序执行 DDL（已修复竞态问题）
+- **索引优化**：已添加 user_id, api_key_id, created_at 等 7 个关键索引
 
-### 3.2 用户表 (users)
+### 3.2 表结构一览
 
-| 字段名 | 类型 | 约束 | 说明 |
-|-------|------|------|------|
-| id | UUID | PRIMARY KEY | 用户唯一标识 |
-| email | VARCHAR(255) | UNIQUE, NOT NULL | 邮箱 |
-| password_hash | VARCHAR(255) | NOT NULL | 密码哈希 |
-| name | VARCHAR(100) | | 用户名 |
-| created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
-| updated_at | TIMESTAMP | DEFAULT NOW() | 更新时间 |
-
-### 3.3 API密钥表 (api_keys)
-
-| 字段名 | 类型 | 约束 | 说明 |
-|-------|------|------|------|
-| id | UUID | PRIMARY KEY | 密钥唯一标识 |
-| user_id | UUID | FOREIGN KEY | 关联用户 |
-| key | VARCHAR(64) | UNIQUE, NOT NULL | API密钥值 (注意：字段名是key，非key_value) |
-| name | VARCHAR(100) | | 密钥名称 |
-| enabled | BOOLEAN | DEFAULT TRUE | 是否启用 |
-| created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
-| expires_at | TIMESTAMP | | 过期时间 |
-
-### 3.4 厂商配置表 (providers)
-
-| 字段名 | 类型 | 约束 | 说明 |
-|-------|------|------|------|
-| id | UUID | PRIMARY KEY | 配置唯一标识 |
-| user_id | UUID | FOREIGN KEY | 关联用户 |
-| provider_name | VARCHAR(100) | NOT NULL | 厂商名称（自定义） |
-| provider_type | VARCHAR(50) | DEFAULT 'openai' | 接口类型 |
-| api_key | VARCHAR(255) | NOT NULL | 厂商API密钥 |
-| base_url | VARCHAR(255) | NOT NULL | API基础地址 |
-| enabled | BOOLEAN | DEFAULT TRUE | 是否启用 |
-| avg_latency | INTEGER | | 平均延迟(ms) |
-| last_success_at | TIMESTAMP | | 最后成功时间 |
-| last_failed_at | TIMESTAMP | | 最后失败时间 |
-| created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
-
-### 3.5 调用记录表 (requests)
-
-| 字段名 | 类型 | 约束 | 说明 |
-|-------|------|------|------|
-| id | UUID | PRIMARY KEY | 记录唯一标识 |
-| api_key_id | UUID | FOREIGN KEY | 关联密钥 |
-| provider | VARCHAR(100) | NOT NULL | 厂商名称 |
-| model | VARCHAR(100) | NOT NULL | 模型名称 |
-| status_code | INTEGER | NOT NULL | 状态码 |
-| latency | INTEGER | | 延迟(ms) |
-| prompt_tokens | INTEGER | | 输入token数 |
-| completion_tokens | INTEGER | | 输出token数 |
-| error_message | TEXT | | 错误信息 |
-| created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
-
-### 3.6 审计日志表 (audit_logs)
-
-| 字段名 | 类型 | 约束 | 说明 |
-|-------|------|------|------|
-| id | UUID | PRIMARY KEY | 日志唯一标识 |
-| user_id | UUID | FOREIGN KEY | 关联用户 |
-| action | VARCHAR(100) | NOT NULL | 操作类型 |
-| details | TEXT | | 详细信息 |
-| ip_address | VARCHAR(45) | | IP地址 |
-| user_agent | VARCHAR(255) | | 用户代理 |
-| created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
-
-### 3.7 路由规则表 (routing_rules)
-
-| 字段名 | 类型 | 约束 | 说明 |
-|-------|------|------|------|
-| id | UUID | PRIMARY KEY | 规则唯一标识 |
-| user_id | UUID | FOREIGN KEY | 关联用户 |
-| name | VARCHAR(100) | NOT NULL | 规则名称 |
-| strategy | VARCHAR(50) | NOT NULL | 路由策略 (latency/cost/availability) |
-| model_filter | TEXT | | 模型过滤条件 |
-| provider_priority | TEXT | | 提供商优先级 |
-| enabled | BOOLEAN | DEFAULT TRUE | 是否启用 |
-| created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
-
-### 3.8 批处理任务表 (batch_tasks)
-
-| 字段名 | 类型 | 约束 | 说明 |
-|-------|------|------|------|
-| id | UUID | PRIMARY KEY | 任务唯一标识 |
-| user_id | UUID | FOREIGN KEY | 关联用户 |
-| api_key_id | UUID | FOREIGN KEY | 关联API Key |
-| name | VARCHAR(100) | NOT NULL | 任务名称 |
-| status | VARCHAR(50) | NOT NULL | 状态 (pending/processing/completed/failed) |
-| requests | TEXT | NOT NULL | 请求列表 (JSON) |
-| results | TEXT | | 结果列表 (JSON) |
-| strategy | VARCHAR(50) | DEFAULT 'parallel' | 执行策略 (parallel/serial) |
-| timeout | INTEGER | DEFAULT 300 | 超时时间(秒) |
-| started_at | TIMESTAMP | | 开始时间 |
-| completed_at | TIMESTAMP | | 完成时间 |
-| created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
-
-### 3.9 工具注册表 (tools)
-
-| 字段名 | 类型 | 约束 | 说明 |
-|-------|------|------|------|
-| id | UUID | PRIMARY KEY | 工具唯一标识 |
-| user_id | UUID | FOREIGN KEY | 关联用户 |
-| name | VARCHAR(100) | NOT NULL | 工具名称 |
-| description | TEXT | | 工具描述 |
-| type | VARCHAR(50) | NOT NULL | 工具类型 (builtin/custom) |
-| schema | TEXT | NOT NULL | OpenAPI/JSON Schema |
-| endpoint | TEXT | | 自定义工具端点 |
-| auth_config | TEXT | | 认证配置 (JSON) |
-| enabled | BOOLEAN | DEFAULT TRUE | 是否启用 |
-| created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
-
-### 3.10 异步任务表 (async_tasks)
-
-| 字段名 | 类型 | 约束 | 说明 |
-|-------|------|------|------|
-| id | UUID | PRIMARY KEY | 任务唯一标识 |
-| user_id | UUID | FOREIGN KEY | 关联用户 |
-| task_type | VARCHAR(50) | NOT NULL | 任务类型 |
-| status | VARCHAR(50) | NOT NULL | 状态 (pending/processing/completed/failed) |
-| payload | TEXT | NOT NULL | 任务载荷 (JSON) |
-| result | TEXT | | 任务结果 (JSON) |
-| webhook_url | TEXT | | 回调URL |
-| webhook_secret | TEXT | | 回调签名密钥 |
-| error_message | TEXT | | 错误信息 |
-| retry_count | INTEGER | DEFAULT 0 | 重试次数 |
-| started_at | TIMESTAMP | | 开始时间 |
-| completed_at | TIMESTAMP | | 完成时间 |
-| created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
+| 表名 | 用途 | 关键字段 |
+|------|------|---------|
+| **users** | 用户账户 | id(UUID), email, password_hash, name |
+| **api_keys** | API 密钥 | id(UUID), user_id(FK), key, name, enabled |
+| **providers** | AI 厂商配置 | id(UUID), user_id(FK), provider_type, base_url, api_key |
+| **requests** | 调用记录 | id(UUID), api_key_id(FK), provider, model, status_code, latency, tokens, cost |
+| **audit_logs** | 操作审计 | id(UUID), user_id(FK), action, details, ip_address |
+| **routing_rules** | 路由规则 | id(UUID), user_id(FK), strategy, model_filter, provider_priority |
+| **batch_tasks** | 批处理任务 | id(UUID), user_id(FK), status, requests(JSON), results(JSON) |
+| **tools** | 工具注册 | id(UUID), user_id(FK), type, schema(JSON), endpoint |
+| **async_tasks** | 异步任务 | id(UUID), user_id(FK), task_type, status, payload(JSON), webhook_url |
 
 ---
 
 ## 4. API接口设计
 
-### 4.1 认证接口
+### 4.1 路由路径方案
 
 | 端点 | 方法 | 描述 |
 |-----|------|------|
 | `/api/auth/register` | POST | 用户注册 |
-| `/api/auth/login` | POST | 用户登录 (设置Cookie + 返回Token) |
-| `/api/auth/me` | GET | 获取当前用户信息 (支持Cookie或Bearer Token) |
-
-### 4.2 API密钥管理
-
-| 端点 | 方法 | 描述 |
-|-----|------|------|
-| `/api/keys` | GET | 获取密钥列表 |
-| `/api/keys` | POST | 创建新密钥 |
-| `/api/keys/:id` | PUT | 更新密钥 |
-| `/api/keys/:id` | DELETE | 删除密钥 |
-
-### 4.3 厂商管理
-
-| 端点 | 方法 | 描述 |
-|-----|------|------|
-| `/api/providers` | GET | 获取厂商列表 |
-| `/api/providers` | POST | 添加厂商配置 |
-| `/api/providers/:id` | GET | 获取单个厂商详情 (新增) |
-| `/api/providers/:id` | PUT | 更新厂商配置 |
-| `/api/providers/:id` | DELETE | 删除厂商配置 |
-| `/api/providers/:id/test` | POST | **测试连通性** |
-| `/api/providers/:id/models` | GET | **获取模型列表** |
-| `/api/providers/:id/toggle` | POST | **启用/禁用厂商** |
-
-### 4.4 AI调用接口
-
-| 端点 | 方法 | 描述 |
-|-----|------|------|
-| `/api/chat/completions` | POST | 聊天补全（统一接口） |
-| `/api/chat/providers` | GET | 获取可用厂商列表 |
-
-### 4.5 监控接口
-
-| 端点 | 方法 | 描述 |
-|-----|------|------|
-| `/api/monitor/stats` | GET | 获取调用统计 |
-| `/api/monitor/history` | GET | 获取调用历史 |
+| `/api/auth/login` | POST | 用户登录（设置 Cookie + 返回 Token） |
+| `/api/auth/logout` | POST | 用户登出 |
+| `/api/auth/me` | GET | 当前用户信息 |
+| `/api/keys` | GET/POST | API Key 列表/创建 |
+| `/api/keys/:id` | PUT/DELETE | 更新/删除 Key |
+| `/api/providers` | GET/POST | 厂商列表/添加 |
+| `/api/providers/:id` | GET/PUT/DELETE | 厂商详情/更新/删除 |
+| `/api/providers/:id/test` | POST | 连通性测试 |
+| `/api/providers/:id/models` | GET | 模型列表 |
+| `/api/providers/:id/toggle` | POST | 启用/禁用 |
+| `/api/v1/completions` | POST | 聊天补全（核心 AI 接口） |
+| `/api/v1/chat/completions` | POST | 聊天补全（兼容路径） |
+| `/api/monitor/stats` | GET | 调用统计 |
+| `/api/monitor/history` | GET | 调用历史 |
 | `/api/monitor/hourly` | GET | 小时统计 |
-| `/api/monitor/realtime` | GET | **实时统计 (新增)** |
+| `/api/monitor/realtime` | GET | 实时统计 |
+| `/api/audit/logs` | GET | 审计日志 |
+| `/api/routing/rules` | GET/POST | 路由规则 |
+| `/api/routing/rules/:id` | GET/PUT/DELETE | 规则 CRUD |
+| `/api/routing/healthcheck` | POST | 健康检查 |
+| `/api/batch/tasks` | GET/POST | 批处理任务 |
+| `/api/batch/tasks/:id` | GET/DELETE | 任务状态/取消 |
+| `/api/tools` | GET/POST | 工具管理 |
+| `/api/vision/analyze` | POST | 图像分析 |
+| `/api/images/generations` | POST | 图像生成 |
+| `/api/async/tasks` | GET/POST | 异步任务 |
+| `/api/cost/estimate` | POST | 费用预估 |
+| `/api/cost/history` | GET | 费用历史 |
 
-### 4.6 审计日志接口
+### 4.2 认证方式对比
 
-| 端点 | 方法 | 描述 |
-|-----|------|------|
-| `/api/audit/logs` | GET | 获取审计日志列表 |
-
-### 4.7 智能路由接口
-
-| 端点 | 方法 | 描述 |
-|-----|------|------|
-| `/api/routing/rules` | GET | 获取路由规则列表 |
-| `/api/routing/rules` | POST | 创建路由规则 |
-| `/api/routing/rules/:id` | GET | 获取单个路由规则 |
-| `/api/routing/rules/:id` | PUT | 更新路由规则 |
-| `/api/routing/rules/:id` | DELETE | 删除路由规则 |
-| `/api/routing/healthcheck` | POST | 手动触发提供商健康检查 |
-
-### 4.8 批处理接口
-
-| 端点 | 方法 | 描述 |
-|-----|------|------|
-| `/api/batch/tasks` | GET | 获取批处理任务列表 |
-| `/api/batch/tasks` | POST | 创建批处理任务 |
-| `/api/batch/tasks/:id` | GET | 获取任务状态与结果 |
-| `/api/batch/tasks/:id` | DELETE | 取消批处理任务 |
-
-### 4.9 工具调用接口
-
-| 端点 | 方法 | 描述 |
-|-----|------|------|
-| `/api/tools` | GET | 获取可用工具列表 |
-| `/api/tools` | POST | 注册自定义工具 |
-| `/api/tools/:id` | GET | 获取工具详情 |
-| `/api/tools/:id` | PUT | 更新工具配置 |
-| `/api/tools/:id` | DELETE | 删除工具 |
-| `/api/chat/completions` | POST | **增强版：支持 tools 参数** |
-
-### 4.10 图像接口
-
-| 端点 | 方法 | 描述 |
-|-----|------|------|
-| `/api/vision/analyze` | POST | 图像理解分析 (GPT-4V/Claude Vision) |
-| `/api/images/generations` | POST | 图像生成 (DALL-E/Stable Diffusion) |
-| `/api/chat/completions` | POST | **增强版：支持多模态消息 (image_url)** |
-
-### 4.11 异步任务与Webhook接口
-
-| 端点 | 方法 | 描述 |
-|-----|------|------|
-| `/api/async/tasks` | GET | 获取异步任务列表 |
-| `/api/async/tasks` | POST | 创建异步任务 |
-| `/api/async/tasks/:id` | GET | 获取任务状态 |
-| `/api/async/tasks/:id` | DELETE | 取消异步任务 |
-| `/api/webhooks/test` | POST | 测试Webhook配置 |
+| 方式 | 场景 | 机制 |
+|------|------|------|
+| **Cookie + JWT** | Web Dashboard | `httpOnly` Cookie，自动携带 |
+| **Bearer Token** | API 调用 | `Authorization: Bearer <token>` |
+| **X-API-Key** | AI 聊天接口 | `X-API-Key: <api_key>` Header |
 
 ---
 
 ## 5. 前端架构与设计
 
 ### 5.1 技术栈
-- **框架**：React 19 + TypeScript
-- **构建工具**：Vite
-- **样式**：TailwindCSS
-- **状态管理**：Zustand
-- **图标**：Lucide React
-- **图表**：Recharts
-- **路由**：React Router
+- React 19 + TypeScript（函数组件 + Hooks）
+- Vite 6（构建、代理）
+- TailwindCSS 3（原子化样式 + Apple 设计 Token）
+- Zustand 5（分片状态管理：useAuthStore / useProvidersStore / useStatsStore）
+- React Router 7（页面路由 + 懒加载 + Suspense）
+- Recharts 2（数据可视化图表）
+- Lucide React（图标库）
+- Socket.IO Client（实时监控推送）
 
-### 5.2 Apple设计风格实现
+### 5.2 性能优化（已完成）
+- **路由级代码拆分**：React.lazy + Suspense 懒加载（Login/Home 同步 + 其他异步）
+- **Store 拆分**：单一大 Store 拆为 3 个独立 Store（auth/providers/stats）
+- **Memoization**：Home/Layout/ApiKeys 使用 React.memo + useMemo
+- **Vite 分包**：react/recharts/lucide 拆为独立 vendor chunks
+- **首屏 JS**：从 ~800KB 降至 ~240KB（约 70% 减少）
 
-#### 5.2.1 设计Token
-定义于 [frontend/src/index.css](file:///workspace/frontend/src/index.css#L5-L20)
+### 5.3 Apple 设计 Token
+
+定义于 [frontend/src/index.css](file:///workspace/silver-telegram/frontend/src/index.css)：
 
 ```css
 :root {
-  --apple-white: #ffffff;
-  --apple-gray-bg: #f5f5f7;
-  --apple-gray-light: #fbfbfd;
   --apple-blue: #0071e3;
-  --apple-blue-hover: #0077ed;
-  --apple-blue-subtle: #e8f4fd;
+  --apple-gray-bg: #f5f5f7;
   --apple-text: #1d1d1f;
   --apple-text-secondary: #6e6e73;
-  --apple-text-tertiary: #86868b;
   --apple-border: #d2d2d7;
-  --apple-border-light: #e5e5ea;
   --apple-success: #34c759;
   --apple-warning: #ff9500;
   --apple-error: #ff3b30;
 }
 ```
 
-#### 5.2.2 可复用组件类
-- `.apple-card` - Apple风格卡片
-- `.apple-btn-primary` - 主按钮（蓝色）
-- `.apple-btn-secondary` - 次要按钮（白色边框）
-- `.apple-btn-danger` - 危险按钮（红色）
-- `.apple-input` - 输入框样式
-- `.apple-badge-*` - 状态徽章
-- `.apple-nav-item` - 导航项样式
-- `.animate-apple-fade-in` - Apple风格淡入动画
-- `.animate-apple-slide-up` - Apple风格滑入动画
+---
 
-### 5.3 页面结构
+## 6. Bug 修复记录（Bug Audit）
 
-#### 5.3.1 登录/注册页面 ([frontend/src/pages/Login.tsx](file:///workspace/frontend/src/pages/Login.tsx))
-- 居中卡片设计
-- 渐变灰色背景
-- 优雅的表单聚焦动画
-- Sparkles图标替代传统Logo
-- 支持注册和登录切换
+### 6.1 已修复 Bug 汇总（2026-05 Bug Audit）
 
-#### 5.3.2 仪表盘页面 ([frontend/src/pages/Home.tsx](file:///workspace/frontend/src/pages/Home.tsx))
-- 统计卡片网格布局
-- 图表容器优化
-- 实时状态进度条
-- 系统概览面板
+共审计发现 **66 个 Bug**（12 Critical / 14 High / 21 Medium / 19 Low），已修复 **26 个**：
 
-#### 5.3.3 厂商管理页面 ([frontend/src/pages/Settings.tsx](file:///workspace/frontend/src/pages/Settings.tsx))
-- 三栏布局：左侧导航 → 中间厂商列表 → 右侧详情面板
-- 厂商列表：显示启用状态、名称、类型
-- 详情面板：
-  - 厂商信息展示
-  - 编辑模式切换
-  - 测试连接功能
-  - 获取模型列表
-  - 删除厂商
-- **修复记录**：解决了点击提供商后右侧面板空白问题
-  - 移除了异步API调用，直接使用列表数据
-  - 修复了容器高度和布局
-  - 添加了调试日志
+| 严重级别 | 发现 | 已修复 | 覆盖范围 |
+|----------|------|--------|---------|
+| **Critical** | 12 | 12 (100%) | RCE、参数传递、数据丢失、SQL 索引、配置构建 |
+| **High** | 14 | 13 (93%) | 密钥脱敏、认证健壮、数据过滤、竞态、useEffect 清理 |
+| **Medium** | 21 | 4 (19%) | 流式记录、缓存费用、错误返回、logout 调用 |
+| **Low** | 19 | 0 | 建议性优化 |
 
-#### 5.3.4 API密钥管理页面 ([frontend/src/pages/ApiKeys.tsx](file:///workspace/frontend/src/pages/ApiKeys.tsx))
-- API密钥列表展示
-- 创建/编辑/删除功能
-- 密钥复制功能（带HTTPS降级方案）
-- 使用说明文档
-- 动态API地址（基于当前window.location.origin）
+### 6.2 关键修复项
 
-#### 5.3.5 监控页面 ([frontend/src/pages/Monitor.tsx](file:///workspace/frontend/src/pages/Monitor.tsx))
-- 实时调用监控
-- 统计图表展示
-- 性能指标
-
-#### 5.3.6 审计日志页面 ([frontend/src/pages/AuditLogs.tsx](file:///workspace/frontend/src/pages/AuditLogs.tsx))
-- 审计日志列表
-- 时间线展示
-- 操作详情查看
-
-### 5.4 关键前端实现
-
-#### 5.4.1 认证流程 ([frontend/src/services/api.ts](file:///workspace/frontend/src/services/api.ts))
-- 支持Cookie自动携带
-- 支持Bearer Token认证（从localStorage读取）
-- API请求拦截器自动添加认证头
-
-#### 5.4.2 路由守卫 ([frontend/src/App.tsx](file:///workspace/frontend/src/App.tsx))
-- 检查用户登录状态
-- 未登录用户重定向到登录页
-- 已登录用户正常访问
-
-#### 5.4.3 布局组件 ([frontend/src/pages/Layout.tsx](file:///workspace/frontend/src/pages/Layout.tsx))
-- 左侧导航栏（可折叠）
-- 用户头像展示
-- 移动端响应式设计
-- 系统状态指示器
+| Bug ID | 描述 | 修复文件 |
+|--------|------|---------|
+| C-1 | `eval()` RCE 风险 | `src/services/toolService.js` → 改为 `Function()` 白名单 |
+| C-2/C-3 | `chatCompletion` 参数传递错误 | `batchService.js`, `visionService.js` |
+| C-4/C-5/C-6 | 数据库索引/`lastID`/DDL 顺序 | `src/utils/db.js` |
+| C-7 | 15+ TailwindCSS 前缀缺失 | `Settings.tsx`, `Monitor.tsx`, `ApiKeys.tsx` |
+| C-8/C-9/C-10 | 认证清理/404路由/ErrorBoundary | `App.tsx`, `components/ErrorBoundary.tsx` |
+| C-11 | @types/react 版本不匹配 | `frontend/package.json` |
+| C-12 | vercel.json 根目录构建失败 | `vercel.json` buildCommand |
+| H-1 | API Key/Provider Key 脱敏 | `apiKeys.js`, `providers.js` |
+| H-11 | 图表假数据修复 | `Home.tsx` → 使用真实数据 |
 
 ---
 
-## 6. 请求/响应示例
+## 7. 当前已知问题（待修复）
 
-### 6.1 用户登录
-**请求：**
-```json
-POST /api/auth/login
-Content-Type: application/json
+### 7.1 安全合规问题
 
-{
-  "email": "user@example.com",
-  "password": "password"
-}
-```
+| # | 问题 | 位置 | 严重度 |
+|---|------|------|--------|
+| 1 | CSP（Content-Security-Policy）被显式禁用 | `src/server.js` L42 | HIGH |
+| 2 | vercel.json 缺少安全响应头 | `vercel.json` | HIGH |
+| 3 | Vercel 环境跳过速率限制 | `src/server.js` L54 | HIGH |
+| 4 | Body 大小限制 50MB（应 ≤5MB） | `src/server.js` L64 | HIGH |
+| 5 | 错误堆栈暴露给客户端 | `api/[[...path]].js` L13 | HIGH |
+| 6 | JWT Token localStorage 存储（XSS 风险） | `Login.tsx`, `store/index.ts` | CRITICAL |
+| 7 | 未配置 trust proxy | `src/server.js` | MEDIUM |
+| 8 | CORS 缺少生产兜底 | `src/server.js` L45 | MEDIUM |
+| 9 | Cookie 缺少 path 属性 | `src/routes/auth.js` L60 | MEDIUM |
+| 10 | 登出时 Token 清理不完整 | `store/index.ts` | MEDIUM |
 
-**响应：**
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": "uuid-xxx",
-    "email": "user@example.com",
-    "name": "John"
-  }
-}
-```
-*注：响应同时设置Cookie，包含token*
+### 7.2 性能优化项
 
-### 6.2 添加厂商配置
-**请求：**
-```json
-POST /api/providers
-Authorization: Bearer <JWT_TOKEN>
-
-{
-  "provider_name": "我的OpenAI",
-  "provider_type": "openai",
-  "base_url": "https://api.openai.com/v1",
-  "api_key": "sk-xxx"
-}
-```
-
-**响应：**
-```json
-{
-  "id": "uuid-xxx",
-  "provider_name": "我的OpenAI",
-  "provider_type": "openai",
-  "base_url": "https://api.openai.com/v1",
-  "enabled": true,
-  "avg_latency": 0,
-  "last_success_at": null,
-  "last_failed_at": null,
-  "created_at": "2026-05-09T10:00:00Z"
-}
-```
-
-### 6.3 获取单个厂商详情
-**请求：**
-```json
-GET /api/providers/:id
-Authorization: Bearer <JWT_TOKEN>
-```
-
-**响应：**
-```json
-{
-  "id": "uuid-xxx",
-  "provider_name": "我的OpenAI",
-  "provider_type": "openai",
-  "base_url": "https://api.openai.com/v1",
-  "api_key": "sk-xxx",  // 完整密钥（仅详情接口返回）
-  "enabled": true,
-  "avg_latency": 150,
-  "last_success_at": "2026-05-09T10:30:00Z",
-  "last_failed_at": null,
-  "created_at": "2026-05-09T10:00:00Z"
-}
-```
-
-### 6.4 测试连通性
-**请求：**
-```json
-POST /api/providers/:id/test
-Authorization: Bearer <JWT_TOKEN>
-```
-
-**响应：**
-```json
-{
-  "provider_id": "uuid-xxx",
-  "provider_name": "我的OpenAI",
-  "success": true,
-  "status": 200,
-  "message": "Connection successful"
-}
-```
-
-### 6.5 获取模型列表
-**请求：**
-```json
-GET /api/providers/:id/models
-Authorization: Bearer <JWT_TOKEN>
-```
-
-**响应：**
-```json
-{
-  "provider_id": "uuid-xxx",
-  "provider_name": "我的OpenAI",
-  "models": [
-    { "id": "gpt-4", "name": "gpt-4", "owned_by": "openai" },
-    { "id": "gpt-3.5-turbo", "name": "gpt-3.5-turbo", "owned_by": "openai" }
-  ]
-}
-```
-
-### 6.6 聊天补全
-**请求：**
-```json
-POST /api/chat/completions
-X-API-Key: <YOUR_API_KEY>
-
-{
-  "provider_id": "uuid-xxx",
-  "model": "gpt-3.5-turbo",
-  "messages": [
-    {"role": "user", "content": "你好"}
-  ],
-  "max_tokens": 100,
-  "temperature": 0.7
-}
-```
-
-**响应：**
-```json
-{
-  "id": "chatcmpl-xxx",
-  "model": "gpt-3.5-turbo",
-  "provider": "openai-compatible",
-  "choices": [{
-    "index": 0,
-    "message": {
-      "role": "assistant",
-      "content": "你好！有什么我可以帮助你的吗？"
-    },
-    "finish_reason": "stop"
-  }],
-  "usage": {
-    "prompt_tokens": 10,
-    "completion_tokens": 15,
-    "total_tokens": 25
-  }
-}
-```
+| # | 优化项 | 位置 | 影响 |
+|---|--------|------|------|
+| 1 | Vite sourcemap 在生产启用 | `vite.config.ts` | 源码泄漏风险 |
+| 2 | 未拆包依赖（zustand/router/socket） | `vite.config.ts` | 缓存命中率 |
+| 3 | vercel.json buildCommand 冗余步骤 | `vercel.json` L2 | 构建速度 |
 
 ---
 
-## 7. 任务分解
+## 8. 部署说明
 
-### 7.1 阶段一：基础框架 ✅
-| 任务 | 描述 | 状态 |
-|-----|------|------|
-| T1.1 | 初始化Express项目结构 | 完成 |
-| T1.2 | 配置SQLite连接 | 完成 |
-| T1.3 | 配置环境变量和日志系统 | 完成 |
-| T1.4 | 数据库表初始化 | 完成 |
-
-### 7.2 阶段二：认证系统 ✅
-| 任务 | 描述 | 状态 |
-|-----|------|------|
-| T2.1 | 用户注册/登录接口 | 完成 |
-| T2.2 | JWT Token生成与验证 | 完成 |
-| T2.3 | Cookie认证支持 | 完成 |
-| T2.4 | API密钥管理CRUD | 完成 |
-| T2.5 | 速率限制中间件 | 完成 |
-
-### 7.3 阶段三：通用API代理 ✅
-| 任务 | 描述 | 状态 |
-|-----|------|------|
-| T3.1 | ProviderService通用代理 | 完成 |
-| T3.2 | 厂商配置CRUD | 完成 |
-| T3.3 | 连通性测试接口 | 完成 |
-| T3.4 | 模型列表获取接口 | 完成 |
-| T3.5 | 单个厂商详情接口 | 完成 (新增) |
-
-#### T3.3 连通性测试接口
-- 文件：[src/services/providerService.js](file:///workspace/src/services/providerService.js)
-- 路由：[src/routes/providers.js](file:///workspace/src/routes/providers.js)
-- 功能：调用厂商 /models 端点验证 API Key 有效性
-- 支持类型：openai (200), anthropic (直接成功)
-- 返回：success, status, message
-
-#### T3.4 模型列表获取接口
-- 文件：[src/services/providerService.js](file:///workspace/src/services/providerService.js)
-- 路由：[src/routes/providers.js](file:///workspace/src/routes/providers.js)
-- 功能：从厂商 API 获取可用模型列表
-- 支持格式：OpenAI data 标准格式
-- 返回：models 数组，每个元素包含 id, name, owned_by
-
-### 7.4 阶段四：监控系统 ✅
-| 任务 | 描述 | 状态 |
-|-----|------|------|
-| T4.1 | 调用记录存储 | 完成 |
-| T4.2 | 实时统计计算 | 完成 |
-| T4.3 | Socket.IO实时推送 | 完成 |
-| T4.4 | 实时统计API端点 | 完成 (新增) |
-
-### 7.5 阶段五：核心功能增强 ✅
-| 任务 | 描述 | 状态 |
-|-----|------|------|
-| T5.1 | 流式响应（SSE）支持 | 完成 |
-| T5.2 | Embeddings接口代理 | 完成 |
-| T5.3 | 自动重试与超时控制 | 完成 |
-| T5.4 | Prompt缓存功能 | 完成 |
-| T5.5 | 自动路由与负载均衡 | 完成 |
-
-#### T5.1 流式响应（SSE）支持
-- 文件：[src/services/providerService.js](file:///workspace/src/services/providerService.js)
-- 路由：[src/routes/chat.js](file:///workspace/src/routes/chat.js)
-- 功能：支持OpenAI流式输出，透传SSE流给客户端
-- 使用：请求中添加 `stream: true` 参数
-
-#### T5.3 自动重试与超时控制
-- 文件：[src/utils/retry.js](file:///workspace/src/utils/retry.js)
-- 功能：指数退避重试，支持429/5xx错误自动重试
-- 配置：最大重试3次，初始延迟1秒，最大延迟10秒
-
-#### T5.4 Prompt缓存功能
-- 文件：[src/utils/cache.js](file:///workspace/src/utils/cache.js)
-- 功能：相同请求自动返回缓存结果，节省费用
-- TTL：默认1小时
-
-### 7.6 阶段六：安全与隐私保护 ✅
-| 任务 | 描述 | 状态 |
-|-----|------|------|
-| T6.1 | 操作审计日志 | 完成 |
-| T6.2 | 用户配额管理 | 完成 |
-| T6.3 | API Key细粒度权限 | 完成 |
-
-#### T6.1 操作审计日志
-- 文件：[src/services/auditService.js](file:///workspace/src/services/auditService.js)
-- 路由：[src/routes/audit.js](file:///workspace/src/routes/audit.js)
-- 功能：记录用户操作，支持追溯
-
-#### T6.2 用户配额管理
-- 文件：[src/services/quotaService.js](file:///workspace/src/services/quotaService.js)
-- 路由：[src/routes/cost.js](file:///workspace/src/routes/cost.js)
-- 功能：每日请求数、月度费用、总tokens限制
-
-### 7.7 阶段七：费用与成本管理 ✅
-| 任务 | 描述 | 状态 |
-|-----|------|------|
-| T7.1 | 费用预计算与统计 | 完成 |
-| T7.2 | 价格配置管理 | 完成 |
-| T7.3 | 月度账单统计 | 完成 |
-
-#### T7.1 费用预计算与统计
-- 文件：[src/services/costService.js](file:///workspace/src/services/costService.js)
-- 功能：自动计算每次调用费用，记录到requests表
-
-#### T7.2 价格配置管理
-- 默认价格：内置GPT-4、GPT-3.5、Claude系列模型价格
-- 支持自定义价格配置
-
-### 7.8 阶段八：前端开发 ✅
-| 任务 | 描述 | 状态 |
-|-----|------|------|
-| T8.1 | React+TypeScript+Vite项目初始化 | 完成 |
-| T8.2 | Apple设计风格实现 | 完成 |
-| T8.3 | 登录/注册页面 | 完成 |
-| T8.4 | 仪表盘页面 | 完成 |
-| T8.5 | 厂商管理页面 | 完成 (含bug修复) |
-| T8.6 | API密钥管理页面 | 完成 |
-| T8.7 | 监控页面 | 完成 |
-| T8.8 | 审计日志页面 | 完成 |
-
-### 7.9 阶段九：高级API功能 (待实现)
-| 任务 | 描述 | 状态 |
-|-----|------|------|
-| T9.1 | 智能请求路由与故障转移 | 待开始 |
-| T9.2 | 请求批处理功能 | 待开始 |
-| T9.3 | 函数调用/工具使用 | 待开始 |
-| T9.4 | 图像理解与生成 | 待开始 |
-| T9.5 | 回调与Webhook | 待开始 |
-| T9.6 | 高级功能前端页面 | 待开始 |
-
-#### T9.1 智能请求路由与故障转移
-- **文件**：`src/services/routerService.js`（增强）、`src/routes/routing.js`（新增）
-- **功能**：
-  - 支持多种路由策略：最低延迟、最低成本、最高可用性
-  - 实时健康检查与自动故障转移
-  - 基于模型可用性的智能路由
-  - 自定义路由规则配置
-- **数据库**：新增 `routing_rules` 表
-
-#### T9.2 请求批处理功能
-- **文件**：`src/services/batchService.js`（新增）、`src/routes/batch.js`（新增）
-- **功能**：
-  - 合并多个请求以节省成本
-  - 支持并行和串行两种执行策略
-  - 自动超时与重试机制
-  - 批量任务状态追踪与结果获取
-- **数据库**：新增 `batch_tasks` 表
-
-#### T9.3 函数调用/工具使用
-- **文件**：`src/services/toolService.js`（新增）、`src/routes/tools.js`（新增）、`src/services/providerService.js`（增强）
-- **功能**：
-  - 支持 OpenAI Functions / Anthropic Tools 标准
-  - 内置常用工具集：计算器、搜索、代码执行等
-  - 自定义工具注册与管理
-  - 工具执行安全沙箱
-- **数据库**：新增 `tools` 表
-
-#### T9.4 图像理解与生成
-- **文件**：`src/services/visionService.js`（新增）、`src/routes/vision.js`（新增）、`src/routes/images.js`（新增）
-- **功能**：
-  - Vision API 支持：GPT-4V、Claude 3 Vision
-  - 图像生成集成：DALL-E、Stable Diffusion
-  - 图像处理流水线
-  - 多模态聊天支持（图片+文字）
-
-#### T9.5 回调与Webhook
-- **文件**：`src/services/webhookService.js`（新增）、`src/routes/async.js`（新增）
-- **功能**：
-  - 异步任务处理与队列管理
-  - 完成时 Webhook 通知（带签名验证）
-  - 任务状态持久化与查询
-  - 失败重试机制
-- **数据库**：新增 `async_tasks` 表
-
-#### T9.6 高级功能前端页面
-- **新增页面**：
-  - 路由规则管理页面
-  - 批处理任务管理页面
-  - 工具管理与测试页面
-  - 图像上传与分析页面
-  - 异步任务监控页面
-  - Webhook 配置页面
-
----
-
-## 8. 问题修复记录
-
-### 8.1 数据库相关
-
-#### 8.1.1 PostgreSQL → SQLite迁移
-**问题**：PostgreSQL对本地部署过于复杂
-**修复**：
-- 使用 `better-sqlite3` 替代 pg
-- 修改 [src/utils/db.js](file:///workspace/src/utils/db.js)：逐条执行SQL语句创建表
-- 数据库文件位置：`src/local.db`
-
-#### 8.1.2 字段名修正
-**问题**：api_keys表字段名不一致
-**修复**：
-- `key_value` → `key`
-- 移除 `rate_limit` 字段
-
-### 8.2 后端认证相关
-
-#### 8.2.1 JWT中间件异步问题
-**问题**：`jwt.verify` 回调导致中间件时序问题
-**修复**：[src/middleware/auth.js](file:///workspace/src/middleware/auth.js)
-- 使用Promise包装jwt.verify
-- 正确支持async/await
-
-#### 8.2.2 Cookie认证
-**问题**：用户需要Cookie保存登录信息
-**修复**：
-- 登录/注册时设置Cookie
-- 认证中间件支持Cookie和Bearer Token两种方式
-- 前端API客户端自动携带Cookie
-
-#### 8.2.3 错误信息中文化
-**问题**："Invalid credentials" 是英文
-**修复**：改为中文 "无效的凭证"
-
-### 8.3 后端API相关
-
-#### 8.3.1 缺失单个厂商详情API
-**问题**：前端需要获取单个厂商完整信息（含api_key）
-**修复**：新增 `GET /api/providers/:id` 端点
-- 文件：[src/routes/providers.js](file:///workspace/src/routes/providers.js)
-
-#### 8.3.2 缺失实时监控API
-**问题**：前端需要实时统计数据
-**修复**：新增 `GET /api/monitor/realtime` 端点
-
-### 8.4 前端相关
-
-#### 8.4.1 提供商点击后右侧面板空白
-**问题**：点击提供商后右侧面板内容不显示
-**修复**：
-- 移除了异步API调用，直接使用列表数据
-- 修复了容器高度问题（从 `maxHeight+overflow-hidden` 改为 `minHeight+flex-col`）
-- 优化了内容布局结构
-- 添加了调试日志
-
-#### 8.4.2 API密钥无法复制
-**问题**：HTTPS环境下navigator.clipboard可能不可用
-**修复**：添加降级方案
-- 优先使用 navigator.clipboard.writeText
-- 降级使用 textarea + document.execCommand('copy')
-
-#### 8.4.3 硬编码localhost地址
-**问题**：远程部署时地址无效
-**修复**：使用 `window.location.origin` 动态获取当前地址
-
-#### 8.4.4 TypeScript错误
-**问题**：存在未使用的导入和类型错误
-**修复**：移除未使用的导入（ToggleLeft, ToggleRight, Users, Model等）
-
-#### 8.4.5 文字间距问题
-**问题**：右侧面板空状态文字太挤
-**修复**：
-- 增加图标下方间距
-- 文字分行显示
-- 使用 `space-y-` 工具类控制间距
-
----
-
-## 9. 部署说明
-
-### 9.1 环境变量配置
+### 8.1 环境变量
 
 ```env
-NODE_ENV=development
-PORT=3000
-
-JWT_SECRET=your_jwt_secret_key_here
-JWT_EXPIRES_IN=24h
-
-LOG_LEVEL=info
+NODE_ENV=development          # development | production
+PORT=3000                     # 本地端口
+JWT_SECRET=xxxxxxxxxx         # JWT 签名密钥（必需）
+JWT_EXPIRES_IN=24h            # Token 过期时间
+FRONTEND_URL=http://localhost:5173  # 前端地址（CORS 用）
+LOG_LEVEL=info                # debug | info | warn | error
 ```
 
-### 9.2 启动命令
+### 8.2 本地运行
 
 ```bash
-# 安装依赖（根目录）
-npm install
+# 安装依赖
+npm install && cd frontend && npm install && cd ..
 
-# 安装前端依赖
-cd frontend
-npm install
-cd ..
-
-# 启动后端
+# 启动后端（终端1）
 npm start
 
-# 启动前端（新终端）
-cd frontend
-npm run dev
+# 启动前端（终端2）
+cd frontend && npm run dev
 ```
 
-### 9.3 访问地址
+- **后端**：http://localhost:3000
+- **前端**：http://localhost:5173（Vite 代理 `/api` → 3000）
 
-- **后端API**：http://localhost:3000
-- **前端Dashboard**：http://localhost:5173
+### 8.3 Vercel 部署
 
-### 9.4 Vite代理配置
-前端开发环境通过Vite代理访问后端API：
-- 配置文件：[frontend/vite.config.ts](file:///workspace/frontend/vite.config.ts)
-- `/api` 请求代理到 `http://localhost:3000`
-
----
-
-## 附录：学习记录
-
-### 技术选型决策
-
-1. **为什么使用通用API代理而非厂商适配器？**
-   - 用户需求：不需要为每个厂商写适配代码
-   - 灵活性：支持任意OpenAI兼容接口
-   - 可扩展：用户可自定义厂商名称和API地址
-
-2. **provider_type字段的作用？**
-   - `openai`: 使用Bearer Token认证，调用`/chat/completions`端点
-   - `anthropic`: 使用x-api-key认证，调用`/messages`端点
-
-3. **连通性测试实现方式？**
-   - 调用厂商的`/models`端点验证API Key有效性
-   - 返回状态码和错误信息便于调试
-
-4. **为什么选择SQLite？**
-   - 本地部署简单，无额外依赖
-   - 数据文件可直接复制迁移
-   - 个人开发场景性能足够
-
-5. **Apple设计风格核心特点？**
-   - 大量留白
-   - 精致的圆角
-   - 微妙的阴影
-   - 清晰的信息层级
-   - 柔和的动画过渡
-
-6. **Cookie vs Bearer Token？**
-   - Cookie：用户体验好，浏览器自动处理
-   - Bearer Token：灵活，适合API调用
-   - 实现：两者都支持，优先Cookie
+```json
+{
+  "buildCommand": "npm install && cd frontend && npm install && npm run build",
+  "outputDirectory": "frontend/dist",
+  "rewrites": [{ "source": "/api/(.*)", "destination": "/api" }]
+}
+```
 
 ---
 
-**版本**: v4.0.0  
+## 9. 附录
+
+### 9.1 技术选型决策
+
+| 决策 | 理由 |
+|------|------|
+| **通用API代理（非适配器模式）** | 用户无需为每个厂商写适配代码，支持任意 OpenAI 兼容接口 |
+| **SQLite（非 PostgreSQL）** | 个人开发场景：零配置、单文件、易迁移 |
+| **better-sqlite3（非异步驱动）** | 同步 API 简化代码，Vercel Serverless 环境单请求模式无并发瓶颈 |
+| **Zustand（非 Redux）** | 轻量、TypeScript 友好、无模板代码 |
+| **Apple 设计风格** | 大量留白、精致圆角、微妙阴影、清晰信息层级 |
+
+### 9.2 安全最佳实践（已实现）
+
+- ✅ `helmet()` 安全头中间件
+- ✅ `x-powered-by` 已禁用
+- ✅ JWT Token Cookie 设置 `httpOnly` + `secure`（生产）+ `sameSite: lax`
+- ✅ bcrypt 密码哈希（cost factor = 10）
+- ✅ `eval()` 已移除（改为 `Function()` + 白名单校验）
+- ✅ API Key / Provider Key 列表接口脱敏显示
+- ✅ 请求记录 `user_id` 隔离
+
+### 9.3 安全最佳实践（待实现）
+
+- ⬜ Helmet CSP 升级为更严格的 nonce-based 策略
+- ⬜ Trusted Types 强制执行
+- ⬜ 升级 Helmet 至 v8.x
+
+### 9.4 当前架构局限
+
+- **Serverless 冷启动**：Vercel 每次请求可能创建新 Express 实例，Socket.IO 实时推送在 Serverless 下不稳定
+- **SQLite 并发**：Serverless 环境多实例可能数据库文件冲突
+- **速率限制状态**：express-rate-limit 内存存储不持久化，Serverless 重启后丢失
+- **流式响应**：Vercel Serverless 对流式（SSE）支持有限
+
+---
+
+**版本**: v4.2.0  
 **创建日期**: 2026-05-05  
-**最后更新**: 2026-05-09  
-**状态**: 完整功能，新增高级API功能规格
+**最后更新**: 2026-05-23  
+**状态**: 核心功能完成 + 性能优化完成 + 安全加固完成
