@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useStore } from '@/store';
 import { providersAPI, customModelsAPI } from '@/services/api';
 import type { Provider, CreateProviderData, TestConnectionResult, CustomModel, Model } from '@/types';
@@ -43,6 +43,7 @@ export default function Settings() {
   const [isAddingModels, setIsAddingModels] = useState(false);
   const [modelFilter, setModelFilter] = useState<string>('');
   const [isCreatingProvider, setIsCreatingProvider] = useState(false);
+  const selectedProviderIdRef = useRef<string | null>(null);
 
   const [formData, setFormData] = useState<CreateProviderData>({
     provider_name: '',
@@ -55,8 +56,9 @@ export default function Settings() {
     try {
       const data = await providersAPI.getAll();
       setProviders(data);
-      if (selectedProvider) {
-        const updated = data.find((p: Provider) => p.id === selectedProvider.id);
+      const currentId = selectedProviderIdRef.current;
+      if (currentId) {
+        const updated = data.find((p: Provider) => p.id === currentId);
         if (updated) {
           setSelectedProvider(updated);
         }
@@ -64,7 +66,7 @@ export default function Settings() {
     } catch (error) {
       console.error('Failed to fetch providers:', error);
     }
-  }, [selectedProvider, setProviders]);
+  }, [setProviders]);
 
   useEffect(() => {
     fetchProviders();
@@ -290,6 +292,7 @@ export default function Settings() {
   };
 
   const handleSelectProvider = (provider: Provider) => {
+    selectedProviderIdRef.current = provider.id;
     setSelectedProvider(provider);
     setFormData({
       provider_name: provider.provider_name,
@@ -309,6 +312,7 @@ export default function Settings() {
     setIsCreatingProvider(true);
     try {
       const newProvider = await providersAPI.create(formData);
+      selectedProviderIdRef.current = newProvider.id;
       setSelectedProvider(newProvider);
       setFormData({
         provider_name: newProvider.provider_name,
@@ -342,6 +346,7 @@ export default function Settings() {
     if (!selectedProvider) return;
     try {
       await providersAPI.delete(selectedProvider.id);
+      selectedProviderIdRef.current = null;
       setProviders(providers.filter(p => p.id !== selectedProvider.id));
       setSelectedProvider(null);
     } catch (error) {
