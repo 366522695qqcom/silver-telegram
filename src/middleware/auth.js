@@ -36,15 +36,22 @@ const authenticateToken = async (req, res, next) => {
 };
 
 const authenticateApiKey = async (req, res, next) => {
-  try {
-    const apiKey = req.headers['x-api-key'];
+  let apiKey = req.headers['x-api-key'];
 
-    if (!apiKey) {
-      return res.status(401).json({ error: 'API key required' });
+  if (!apiKey) {
+    const authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      apiKey = authHeader.split(' ')[1];
     }
+  }
 
+  if (!apiKey) {
+    return res.status(401).json({ error: 'API key required' });
+  }
+
+  try {
     const result = await query(
-      'SELECT ak.*, u.id as user_id FROM api_keys ak JOIN users u ON ak.user_id = u.id WHERE ak.key = ? AND ak.enabled = 1',
+      'SELECT ak.id, ak.user_id, ak.name, ak."key", ak.enabled, ak.created_at, ak.expires_at, u.id as uid FROM api_keys ak JOIN users u ON ak.user_id = u.id WHERE ak."key" = ?',
       [apiKey]
     );
 
@@ -54,6 +61,10 @@ const authenticateApiKey = async (req, res, next) => {
 
     const apiKeyData = result.rows[0];
 
+    if (Number(apiKeyData.enabled) !== 1) {
+      return res.status(401).json({ error: 'API key is disabled' });
+    }
+
     if (apiKeyData.expires_at && new Date(apiKeyData.expires_at) < new Date()) {
       return res.status(401).json({ error: 'API key has expired' });
     }
@@ -61,8 +72,8 @@ const authenticateApiKey = async (req, res, next) => {
     req.apiKey = apiKeyData;
     next();
   } catch (error) {
-    console.error('API Key authentication error:', error.message);
-    return res.status(500).json({ error: 'Authentication service unavailable' });
+    console.error('authenticateApiKey error:', error.message);
+    return res.status(500).json({ error: 'Authentication error' });
   }
 };
 

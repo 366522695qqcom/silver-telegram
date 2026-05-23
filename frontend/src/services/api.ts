@@ -1,7 +1,7 @@
 import Cookies from 'js-cookie';
-import type { User, Provider, ApiKey, Request, AuditLog, ModelListResponse, LoginData, RegisterData, CreateProviderData, CreateApiKeyData, TestConnectionResult } from '@/types';
+import type { User, Provider, ApiKey, Request, AuditLog, ModelListResponse, LoginData, CreateProviderData, CreateApiKeyData, TestConnectionResult, CustomModel, CreateCustomModelData } from '@/types';
 
-const request = async <T>(url: string, options: RequestInit = {}): Promise<T> => {
+const request = async <T>(url: string, options: RequestInit = {}, timeout: number = 8000): Promise<T> => {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
@@ -15,41 +15,48 @@ const request = async <T>(url: string, options: RequestInit = {}): Promise<T> =>
     Object.assign(headers, options.headers);
   }
 
-  const response = await fetch(`/api${url}`, {
-    ...options,
-    headers,
-    credentials: 'include',
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-  if (!response.ok) {
-    const text = await response.text();
-    let errorMessage = 'Request failed';
-    try {
-      const error = JSON.parse(text);
-      errorMessage = error.error || errorMessage;
-    } catch (e) {
-      errorMessage = text || errorMessage;
+  try {
+    const response = await fetch(`/api${url}`, {
+      ...options,
+      headers,
+      credentials: 'include',
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const text = await response.text();
+      let errorMessage = 'Request failed';
+      try {
+        const error = JSON.parse(text);
+        errorMessage = error.error || errorMessage;
+      } catch (e) {
+        errorMessage = text || errorMessage;
+      }
+      throw new Error(errorMessage);
     }
-    throw new Error(errorMessage);
-  }
 
-  const text = await response.text();
-  if (!text) {
-    return {} as T;
+    const text = await response.text();
+    if (!text) {
+      return {} as T;
+    }
+    return JSON.parse(text);
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('请求超时，请检查网络连接');
+    }
+    throw error;
   }
-  return JSON.parse(text);
 };
 
 export const authAPI = {
   login: async (data: LoginData): Promise<{ user: User; token: string }> => {
     return request('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
-
-  register: async (data: RegisterData): Promise<{ user: User; token: string }> => {
-    return request('/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -165,11 +172,17 @@ export const monitorAPI = {
   getStats: async (): Promise<{
     total_requests: number;
     success_rate: number;
-    avg_latency: number;
+    avg_latency_ms: number;
+    today_requests: number;
+    provider_stats: { provider: string; count: number; avg_latency_ms: number; total_cost: number }[];
     top_providers: { provider: string; count: number }[];
     top_models: { model: string; count: number }[];
   }> => {
     return request('/monitor/stats');
+  },
+
+  getDaily: async (): Promise<{ date: string; label: string; count: number; success_count: number }[]> => {
+    return request('/monitor/daily');
   },
 
   getRealtimeStats: async (): Promise<{
@@ -180,6 +193,10 @@ export const monitorAPI = {
     activeConnections: number;
   }> => {
     return request('/monitor/realtime');
+  },
+
+  sendTestRequest: async (): Promise<{ success: boolean; message: string; request: Record<string, unknown> }> => {
+    return request('/test-request', { method: 'POST' });
   },
 };
 
@@ -246,178 +263,41 @@ export const costAPI = {
   },
 };
 
-export const routingAPI = {
-  getRules: async (): Promise<any[]> => {
-    const result: any = await request('/routing/rules');
-    return result.rules || [];
+export const customModelsAPI = {
+  getAll: async (): Promise<CustomModel[]> => {
+    return request('/custom-models');
   },
-
-  getRuleById: async (id: string): Promise<any> => {
-    const result: any = await request(`/routing/rules/${id}`);
-    return result.rule;
-  },
-
-  createRule: async (data: any): Promise<any> => {
-    const result: any = await request('/routing/rules', {
+  create: async (data: CreateCustomModelData): Promise<CustomModel> => {
+    return request('/custom-models', {
       method: 'POST',
       body: JSON.stringify(data),
-    });
-    return result.rule;
+    }, 30000);
   },
-
-  updateRule: async (id: string, data: any): Promise<any> => {
-    const result: any = await request(`/routing/rules/${id}`, {
+  update: async (id: string, data: Partial<CreateCustomModelData & { enabled: boolean }>): Promise<CustomModel> => {
+    return request(`/custom-models/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
-    return result.rule;
   },
-
-  deleteRule: async (id: string): Promise<void> => {
-    return request(`/routing/rules/${id}`, {
-      method: 'DELETE',
-    });
-  },
-
-  runHealthCheck: async (): Promise<any[]> => {
-    const result: any = await request('/routing/healthcheck', {
-      method: 'POST',
-    });
-    return result.results || [];
-  },
-};
-
-export const batchAPI = {
-  getTasks: async (): Promise<any[]> => {
-    const result: any = await request('/batch/tasks');
-    return result.tasks || [];
-  },
-
-  getTaskById: async (id: string): Promise<any> => {
-    const result: any = await request(`/batch/tasks/${id}`);
-    return result.task;
-  },
-
-  createTask: async (data: any): Promise<any> => {
-    const result: any = await request('/batch/tasks', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-    return result.task;
-  },
-
-  executeTask: async (id: string, providerId: string): Promise<any> => {
-    const result: any = await request(`/batch/tasks/${id}/execute`, {
-      method: 'POST',
-      body: JSON.stringify({ provider_id: providerId }),
-    });
-    return result.task;
-  },
-
-  deleteTask: async (id: string): Promise<void> => {
-    return request(`/batch/tasks/${id}`, {
-      method: 'DELETE',
-    });
-  },
-};
-
-export const toolsAPI = {
-  getAll: async (): Promise<any[]> => {
-    const result: any = await request('/tools');
-    return result.tools || [];
-  },
-
-  getById: async (id: string): Promise<any> => {
-    const result: any = await request(`/tools/${id}`);
-    return result.tool;
-  },
-
-  create: async (data: any): Promise<any> => {
-    const result: any = await request('/tools', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-    return result.tool;
-  },
-
-  update: async (id: string, data: any): Promise<any> => {
-    const result: any = await request(`/tools/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
-    return result.tool;
-  },
-
   delete: async (id: string): Promise<void> => {
-    return request(`/tools/${id}`, {
+    return request(`/custom-models/${id}`, { method: 'DELETE' });
+  },
+  deleteAll: async (ids: string[]): Promise<void> => {
+    return request('/custom-models', {
       method: 'DELETE',
+      body: JSON.stringify({ ids }),
     });
   },
-
-  execute: async (id: string, parameters: any): Promise<any> => {
-    return request(`/tools/${id}/execute`, {
+  toggleStatus: async (id: string): Promise<CustomModel> => {
+    return request(`/custom-models/${id}/toggle`, { method: 'POST' });
+  },
+  testConnection: async (id: string): Promise<TestConnectionResult> => {
+    return request(`/custom-models/${id}/test`, { method: 'POST' });
+  },
+  batchCreate: async (models: CreateCustomModelData[]): Promise<CustomModel[]> => {
+    return request('/custom-models/batch', {
       method: 'POST',
-      body: JSON.stringify({ parameters }),
-    });
-  },
-};
-
-export const visionAPI = {
-  analyzeImage: async (imageUrl: string, prompt: string, providerId: string): Promise<any> => {
-    return request('/vision/analyze', {
-      method: 'POST',
-      body: JSON.stringify({ image_url: imageUrl, prompt, provider_id: providerId }),
-    });
-  },
-
-  visionChat: async (messages: any[], providerId: string, options?: any): Promise<any> => {
-    return request('/vision/chat', {
-      method: 'POST',
-      body: JSON.stringify({ messages, provider_id: providerId, options }),
-    });
-  },
-};
-
-export const imagesAPI = {
-  generate: async (prompt: string, providerId: string, options?: any): Promise<any> => {
-    return request('/images/generations', {
-      method: 'POST',
-      body: JSON.stringify({ prompt, provider_id: providerId, options }),
-    });
-  },
-};
-
-export const asyncAPI = {
-  getTasks: async (): Promise<any[]> => {
-    const result: any = await request('/async/tasks');
-    return result.tasks || [];
-  },
-
-  getTaskById: async (id: string): Promise<any> => {
-    const result: any = await request(`/async/tasks/${id}`);
-    return result.task;
-  },
-
-  createTask: async (data: any): Promise<any> => {
-    const result: any = await request('/async/tasks', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-    return result.task;
-  },
-
-  deleteTask: async (id: string): Promise<void> => {
-    return request(`/async/tasks/${id}`, {
-      method: 'DELETE',
-    });
-  },
-};
-
-export const webhookAPI = {
-  test: async (webhookUrl: string, webhookSecret?: string): Promise<any> => {
-    return request('/webhooks/test', {
-      method: 'POST',
-      body: JSON.stringify({ webhook_url: webhookUrl, webhook_secret: webhookSecret }),
-    });
+      body: JSON.stringify({ models }),
+    }, 30000);
   },
 };

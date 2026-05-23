@@ -1,26 +1,37 @@
-const { getClient } = require('../config/database');
+const { getClient, classifyError } = require('../config/database');
+const { executeTurso } = require('../config/turso');
 
-const query = async (sql, params = []) => {
+const isRemoteUrl = () => {
+  const url = process.env.LIBSQL_URL || '';
+  return url.startsWith('libsql://') || url.startsWith('https://');
+};
+
+const execute = async (sql, params = []) => {
+  if (isRemoteUrl()) {
+    return executeTurso(sql, params);
+  }
   const db = getClient();
   const result = await db.execute({ sql, args: params });
+  return { rows: result.rows, rowsAffected: result.rowsAffected };
+};
+
+const query = async (sql, params = []) => {
+  const result = await execute(sql, params);
   return { rows: result.rows };
 };
 
 const run = async (sql, params = []) => {
-  const db = getClient();
-  const result = await db.execute({ sql, args: params });
-  return { lastID: result.lastInsertRowid || null, changes: result.rowsAffected };
+  const result = await execute(sql, params);
+  return { lastID: result.rows[0]?.id || null, changes: result.rowsAffected || 0 };
 };
 
 const initializeDatabase = async () => {
-  const db = getClient();
   const statements = [
     `CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       name TEXT,
-      role TEXT DEFAULT 'user',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
@@ -94,75 +105,45 @@ const initializeDatabase = async () => {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-    `CREATE TABLE IF NOT EXISTS routing_rules (
+
+    `CREATE TABLE IF NOT EXISTS custom_models (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      strategy TEXT NOT NULL,
-      model_filter TEXT,
-      provider_priority TEXT,
+      provider_id TEXT,
+      model_name TEXT NOT NULL,
+      model_id TEXT NOT NULL,
+      model_type TEXT DEFAULT 'chat',
+      capabilities TEXT DEFAULT '{}',
+      context_window INTEGER,
+      max_output_tokens INTEGER,
+      base_url TEXT,
+      api_key TEXT,
       enabled INTEGER DEFAULT 1,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    )`,
-    `CREATE TABLE IF NOT EXISTS batch_tasks (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      api_key_id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'pending',
-      requests TEXT NOT NULL,
-      results TEXT,
-      strategy TEXT DEFAULT 'parallel',
-      timeout INTEGER DEFAULT 300,
-      started_at TIMESTAMP,
-      completed_at TIMESTAMP,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id),
-      FOREIGN KEY (api_key_id) REFERENCES api_keys(id)
-    )`,
-    `CREATE TABLE IF NOT EXISTS tools (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      name TEXT NOT NULL,
-      description TEXT,
-      type TEXT NOT NULL,
-      schema TEXT NOT NULL,
-      endpoint TEXT,
-      auth_config TEXT,
-      enabled INTEGER DEFAULT 1,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id)
-    )`,
-    `CREATE TABLE IF NOT EXISTS async_tasks (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
-      task_type TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'pending',
-      payload TEXT NOT NULL,
-      result TEXT,
-      webhook_url TEXT,
-      webhook_secret TEXT,
-      error_message TEXT,
-      retry_count INTEGER DEFAULT 0,
-      started_at TIMESTAMP,
-      completed_at TIMESTAMP,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (user_id) REFERENCES users(id)
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`
   ];
 
-  for (const stmt of statements) {
-    await db.execute(stmt);
-  }
+  try {
+    for (const stmt of statements) {
+      await execute(stmt);
+    }
 
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_requests_api_key_id ON requests(api_key_id)');
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_requests_provider ON requests(provider)');
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_requests_created_at ON requests(created_at)');
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_providers_user_id ON providers(user_id)');
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)');
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id)');
-  await db.execute('CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at)');
+    const alterStatements = [
+      'ALTER TABLE custom_models ADD COLUMN model_type TEXT DEFAULT \'chat\'',
+      'ALTER TABLE custom_models ADD COLUMN capabilities TEXT DEFAULT \'{}\'',
+      'ALTER TABLE custom_models ADD COLUMN context_window INTEGER',
+      'ALTER TABLE custom_models ADD COLUMN max_output_tokens INTEGER',
+    ];
+    for (const stmt of alterStatements) {
+      try { await execute(stmt); } catch (e) {}
+    }
+
+    console.log('Database tables initialized successfully');
+  } catch (error) {
+    const errorType = classifyError(error);
+    console.error('Database table initialization failed:', errorType, (error.message || String(error)).substring(0, 200));
+    throw error;
+  }
 };
 
 module.exports = { query, run, initializeDatabase };

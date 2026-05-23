@@ -4,6 +4,17 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 
 export default defineConfig({
   plugins: [react(), tsconfigPaths({ projects: ['tsconfig.app.json'] })],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-charts': ['recharts'],
+          'vendor-icons': ['lucide-react'],
+        },
+      },
+    },
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,
@@ -11,22 +22,6 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
-      },
-    },
-  },
-  build: {
-    sourcemap: false,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom'],
-          'vendor-recharts': ['recharts'],
-          'vendor-lucide': ['lucide-react'],
-          'vendor-zustand': ['zustand'],
-          'vendor-router': ['react-router-dom'],
-          'vendor-socket': ['socket.io-client'],
-          'vendor-cookie': ['js-cookie'],
-        },
       },
     },
   },

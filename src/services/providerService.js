@@ -65,7 +65,7 @@ class ProviderService {
         modelsUrl = modelsUrl.replace(/\/$/, '') + '/v1/models';
       }
       
-      console.log(`Fetching models from: ${modelsUrl}`);
+      console.log('Fetching models from provider');
       
       const response = await axios.get(modelsUrl, getAxiosConfig({ 
         headers, 
@@ -89,14 +89,13 @@ class ProviderService {
         }));
       }
 
-      console.error(`Unexpected response format:`, response.data);
+      console.error('Unexpected response format from provider');
       return [];
       
     } catch (error) {
       console.error(`Failed to fetch models from ${base_url}:`, error.message);
       if (error.response) {
-        console.error('Response status:', error.response.status);
-        console.error('Response data:', error.response.data);
+        console.error('Provider request failed with status', error.response?.status || 'unknown');
         throw new Error(`无法获取模型列表: ${error.response.data?.error?.message || `HTTP ${error.response.status}`}`);
       }
       throw new Error(`无法获取模型列表: ${error.message}`);
@@ -156,9 +155,10 @@ class ProviderService {
       };
     } catch (error) {
       const latency = Date.now() - startTime;
+      const errorMessage = this.extractErrorMessage(error);
       return {
         success: false,
-        error: error.response?.data?.error?.message || error.message,
+        error: errorMessage,
         status_code: error.response?.status,
         latency_ms: latency,
         isStream: false,
@@ -197,11 +197,36 @@ class ProviderService {
       const latency = Date.now() - startTime;
       return {
         success: false,
-        error: error.response?.data?.error?.message || error.message,
+        error: this.extractErrorMessage(error),
         status_code: error.response?.status,
         latency_ms: latency,
       };
     }
+  }
+
+  extractErrorMessage(error) {
+    if (error.response?.data?.error?.message) {
+      return error.response.data.error.message;
+    }
+    if (error.response?.data?.message) {
+      return error.response.data.message;
+    }
+    if (typeof error.response?.data?.error === 'string' && error.response.data.error) {
+      return error.response.data.error;
+    }
+    if (error.response?.status) {
+      return `Provider error: HTTP ${error.response.status}`;
+    }
+    if (error.code === 'ECONNABORTED') {
+      return 'Request timeout';
+    }
+    if (error.code) {
+      return `Network error: ${error.code}`;
+    }
+    if (error.message) {
+      return error.message;
+    }
+    return 'Unknown error';
   }
 
   buildHeaders(providerType, apiKey) {

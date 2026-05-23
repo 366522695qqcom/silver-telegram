@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { query, run } = require('../utils/db');
 const providerService = require('../services/providerService');
+const { getFirstApiKey } = require('../utils/keyRotation');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
@@ -12,11 +13,10 @@ router.get('/', authenticateToken, async (req, res) => {
       'SELECT id, provider_name, provider_type, base_url, enabled, created_at, api_key, avg_latency, last_success_at, last_failed_at FROM providers WHERE user_id = ?',
       [req.user.id]
     );
-    const masked = result.rows.map(p => ({
-      ...p,
-      api_key: p.api_key ? p.api_key.slice(0, 8) + '****' + p.api_key.slice(-4) : null
-    }));
-    res.json(masked);
+    res.json(result.rows.map(row => ({
+      ...row,
+      avg_latency: row.avg_latency != null ? Math.round(Number(row.avg_latency)) : null,
+    })));
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -34,19 +34,29 @@ router.get('/models', authenticateToken, async (req, res) => {
     }
 
     const provider = providersResult.rows[0];
-    const models = await require('../services/providerService').getModels({
-      base_url: provider.base_url,
-      api_key: provider.api_key,
-      provider_type: provider.provider_type,
-    });
+    try {
+      const models = await providerService.getModels({
+        base_url: provider.base_url,
+        api_key: getFirstApiKey(provider.api_key),
+        provider_type: provider.provider_type,
+      });
 
-    res.json({
-      provider_id: provider.id,
-      provider_name: provider.provider_name,
-      models,
-    });
+      res.json({
+        provider_id: provider.id,
+        provider_name: provider.provider_name,
+        models,
+      });
+    } catch (modelError) {
+      res.json({
+        provider_id: provider.id,
+        provider_name: provider.provider_name,
+        models: [],
+        error: 'Failed to fetch models from provider: ' + (modelError.message || 'unknown error'),
+      });
+    }
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Provider models error:', error.message || error, error.stack?.substring(0, 500));
+    res.status(500).json({ error: 'Failed to fetch models: ' + (error.message || 'Internal server error') });
   }
 });
 
@@ -84,8 +94,10 @@ router.post('/', authenticateToken, async (req, res) => {
       [id]
     );
 
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
+    res.status(201).json({
+      ...result.rows[0],
+      avg_latency: result.rows[0].avg_latency != null ? Math.round(Number(result.rows[0].avg_latency)) : null,
+    });  } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -129,7 +141,10 @@ router.put('/:id', authenticateToken, async (req, res) => {
     await run(`UPDATE providers SET ${updateFields.join(', ')} WHERE id = ? AND user_id = ?`, updateValues);
 
     const result = await query('SELECT id, provider_name, provider_type, base_url, enabled, created_at, api_key, avg_latency, last_success_at, last_failed_at FROM providers WHERE id = ?', [req.params.id]);
-    res.json(result.rows[0]);
+    res.json({
+      ...result.rows[0],
+      avg_latency: result.rows[0].avg_latency != null ? Math.round(Number(result.rows[0].avg_latency)) : null,
+    });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -160,7 +175,7 @@ router.post('/:id/test', authenticateToken, async (req, res) => {
     const provider = result.rows[0];
     const testResult = await providerService.testConnection({
       base_url: provider.base_url,
-      api_key: provider.api_key,
+      api_key: getFirstApiKey(provider.api_key),
       provider_type: provider.provider_type,
     });
 
@@ -183,7 +198,7 @@ router.post('/:id/toggle', authenticateToken, async (req, res) => {
     }
 
     const provider = result.rows[0];
-    const newEnabled = provider.enabled ? 0 : 1;
+    const newEnabled = Number(provider.enabled) === 1 ? 0 : 1;
 
     await run('UPDATE providers SET enabled = ? WHERE id = ? AND user_id = ?', [newEnabled, req.params.id, req.user.id]);
 
@@ -203,19 +218,28 @@ router.get('/:id/models', authenticateToken, async (req, res) => {
     }
 
     const provider = result.rows[0];
-    const models = await providerService.getModels({
-      base_url: provider.base_url,
-      api_key: provider.api_key,
-      provider_type: provider.provider_type,
-    });
+    try {
+      const models = await providerService.getModels({
+        base_url: provider.base_url,
+        api_key: getFirstApiKey(provider.api_key),
+        provider_type: provider.provider_type,
+      });
 
-    res.json({
-      provider_id: provider.id,
-      provider_name: provider.provider_name,
-      models,
-    });
+      res.json({
+        provider_id: provider.id,
+        provider_name: provider.provider_name,
+        models,
+      });
+    } catch (modelError) {
+      res.json({
+        provider_id: provider.id,
+        provider_name: provider.provider_name,
+        models: [],
+        error: 'Failed to fetch models from provider: ' + (modelError.message || 'unknown error'),
+      });
+    }
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

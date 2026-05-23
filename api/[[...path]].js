@@ -11,8 +11,7 @@ try {
 module.exports = (req, res) => {
   if (initError) {
     res.status(500).json({
-      error: 'Server initialization failed',
-      message: initError.message,
+      error: 'Service temporarily unavailable',
     });
     return;
   }

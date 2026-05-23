@@ -1,69 +1,58 @@
-import { useEffect, useState, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
-import { useAuthStore } from '@/store';
+import React, { useEffect, useState, Suspense } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useStore } from '@/store';
 import { authAPI } from '@/services/api';
 import Login from '@/pages/Login';
 import Home from '@/pages/Home';
 import Layout from '@/components/Layout';
-import LoadingSpinner from '@/components/LoadingSpinner';
-import ErrorBoundary from '@/components/ErrorBoundary';
 
-const Settings = lazy(() => import('@/pages/Settings'));
-const ApiKeys = lazy(() => import('@/pages/ApiKeys'));
-const Monitor = lazy(() => import('@/pages/Monitor'));
-const AuditLogs = lazy(() => import('@/pages/AuditLogs'));
-const RoutingRules = lazy(() => import('@/pages/RoutingRules'));
-const BatchTasks = lazy(() => import('@/pages/BatchTasks'));
-const Tools = lazy(() => import('@/pages/Tools'));
-const Vision = lazy(() => import('@/pages/Vision'));
-const AsyncTasks = lazy(() => import('@/pages/AsyncTasks'));
+const Settings = React.lazy(() => import('@/pages/Settings'));
+const ApiKeys = React.lazy(() => import('@/pages/ApiKeys'));
+const Monitor = React.lazy(() => import('@/pages/Monitor'));
+const AuditLogs = React.lazy(() => import('@/pages/AuditLogs'));
 
 export default function App() {
-  const setUser = useAuthStore(s => s.setUser);
-  const setIsAuthenticated = useAuthStore(s => s.setIsAuthenticated);
-  const isAuthenticated = useAuthStore(s => s.isAuthenticated);
-  const setIsLoading = useAuthStore(s => s.setIsLoading);
+  const { setUser, setIsAuthenticated, isAuthenticated, setIsLoading } = useStore();
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    let cancelled = false;
     if (token) {
       setIsLoading(true);
       authAPI.me()
         .then(user => {
-          if (!cancelled) {
-            setUser(user);
-            setIsAuthenticated(true);
-          }
+          setUser(user);
+          setIsAuthenticated(true);
         })
         .catch(() => {
-          if (!cancelled) {
-            localStorage.removeItem('token');
-            setIsAuthenticated(false);
-          }
+          localStorage.removeItem('token');
+          setIsAuthenticated(false);
         })
         .finally(() => {
-          if (!cancelled) {
-            setCheckingAuth(false);
-            setIsLoading(false);
-          }
+          setCheckingAuth(false);
+          setIsLoading(false);
         });
     } else {
       setCheckingAuth(false);
     }
-    return () => { cancelled = true; };
   }, [setUser, setIsAuthenticated, setIsLoading]);
 
   if (checkingAuth) {
-    return <LoadingSpinner />;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-apple-blue border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
 
   return (
     <BrowserRouter>
-      <Suspense fallback={<LoadingSpinner />}>
-        <ErrorBoundary>
-        <Routes>
+      <Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-apple-blue border-t-transparent rounded-full animate-spin" />
+        </div>
+      }>
+      <Routes>
         <Route path="/" element={
           isAuthenticated ? <Navigate to="/home" /> : <Login />
         } />
@@ -112,68 +101,7 @@ export default function App() {
             <Navigate to="/" />
           )}
       />
-      <Route path="/routing" element={
-          isAuthenticated ? (
-            <Layout>
-              <RoutingRules />
-            </Layout>
-          ) : (
-            <Navigate to="/" />
-          )}
-      />
-      <Route path="/batch" element={
-          isAuthenticated ? (
-            <Layout>
-              <BatchTasks />
-            </Layout>
-          ) : (
-            <Navigate to="/" />
-          )}
-      />
-      <Route path="/tools" element={
-          isAuthenticated ? (
-            <Layout>
-              <Tools />
-            </Layout>
-          ) : (
-            <Navigate to="/" />
-          )}
-      />
-      <Route path="/vision" element={
-          isAuthenticated ? (
-            <Layout>
-              <Vision />
-            </Layout>
-          ) : (
-            <Navigate to="/" />
-          )}
-      />
-      <Route path="/async" element={
-          isAuthenticated ? (
-            <Layout>
-              <AsyncTasks />
-            </Layout>
-          ) : (
-            <Navigate to="/" />
-          )}
-      />
-      <Route path="*" element={
-          isAuthenticated ? (
-            <Layout>
-              <div className="min-h-[60vh] flex flex-col items-center justify-center">
-                <h1 className="text-6xl font-bold text-apple-text mb-4">404</h1>
-                <p className="text-lg text-apple-text-secondary mb-8">页面不存在</p>
-                <Link to="/home" className="px-6 py-3 bg-apple-blue text-white rounded-apple-lg hover:bg-apple-blue-hover transition-colors">
-                  返回首页
-                </Link>
-              </div>
-            </Layout>
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        } />
       </Routes>
-      </ErrorBoundary>
       </Suspense>
     </BrowserRouter>
   );

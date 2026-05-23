@@ -1,4 +1,4 @@
-import { useState, useMemo, memo } from 'react';
+import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -11,38 +11,27 @@ import {
   Server,
   Menu,
   X,
-  Route,
-  Package,
-  Wrench,
-  Eye,
-  Zap
 } from 'lucide-react';
-import { useAuthStore } from '@/store';
+import { useStore } from '@/store';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
-function Layout({ children }: LayoutProps) {
+export default function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const logout = useAuthStore(s => s.logout);
-  const user = useAuthStore(s => s.user);
+  const { logout, user } = useStore();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const navItems = useMemo(() => [
+  const navItems = [
     { icon: LayoutDashboard, path: '/home', label: '仪表盘' },
     { icon: Server, path: '/settings', label: '提供商管理' },
     { icon: Key, path: '/api-keys', label: 'API密钥' },
     { icon: Activity, path: '/monitor', label: '实时监控' },
     { icon: FileText, path: '/audit-logs', label: '审计日志' },
-    { icon: Route, path: '/routing', label: '智能路由' },
-    { icon: Package, path: '/batch', label: '批处理' },
-    { icon: Wrench, path: '/tools', label: '工具管理' },
-    { icon: Eye, path: '/vision', label: '视觉功能' },
-    { icon: Zap, path: '/async', label: '异步任务' },
-  ], []);
+  ];
 
   const handleLogout = () => {
     logout();
@@ -81,7 +70,7 @@ function Layout({ children }: LayoutProps) {
                 const Icon = item.icon;
                 const isActive = currentPath === item.path;
                 return (
-                  <li key={item.path}>
+                  <li key={item.path} className="relative group">
                     <button
                       onClick={() => {
                         navigate(item.path);
@@ -90,11 +79,14 @@ function Layout({ children }: LayoutProps) {
                       className={`apple-nav-item w-full ${
                         isActive ? 'apple-nav-item-active' : 'apple-nav-item-default'
                       } ${collapsed ? 'justify-center px-0' : ''}`}
-                      title={collapsed ? item.label : undefined}
                     >
                       <Icon className="w-[18px] h-[18px] flex-shrink-0" />
                       {!collapsed && <span>{item.label}</span>}
                     </button>
+                    <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 z-[60] shadow-lg">
+                      {item.label}
+                      <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
+                    </div>
                   </li>
                 );
               })}
@@ -126,28 +118,38 @@ function Layout({ children }: LayoutProps) {
               </div>
             )}
 
-            <button
-              onClick={handleLogout}
-              className={`apple-nav-item apple-nav-item-default w-full text-red-500 hover:bg-red-50 hover:text-red-600 ${
-                collapsed ? 'justify-center px-0' : ''
-              }`}
-              title={collapsed ? '退出登录' : undefined}
-            >
-              <LogOut className="w-[18px] h-[18px] flex-shrink-0" />
-              {!collapsed && <span>退出登录</span>}
-            </button>
+            <div className="relative group">
+              <button
+                onClick={handleLogout}
+                className={`apple-nav-item apple-nav-item-default w-full text-red-500 hover:bg-red-50 hover:text-red-600 ${
+                  collapsed ? 'justify-center px-0' : ''
+                }`}
+              >
+                <LogOut className="w-[18px] h-[18px] flex-shrink-0" />
+                {!collapsed && <span>退出登录</span>}
+              </button>
+              <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 z-[60] shadow-lg">
+                退出登录
+                <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
+              </div>
+            </div>
 
-            <button
-              onClick={() => setCollapsed(!collapsed)}
-              className="hidden md:flex apple-nav-item apple-nav-item-default w-full mt-2 justify-center px-0"
-              title={collapsed ? '展开侧边栏' : '收起侧边栏'}
-            >
-              {collapsed ? (
-                <ChevronRight className="w-[18px] h-[18px]" />
-              ) : (
-                <ChevronLeft className="w-[18px] h-[18px]" />
-              )}
-            </button>
+            <div className="relative group">
+              <button
+                onClick={() => setCollapsed(!collapsed)}
+                className="hidden md:flex apple-nav-item apple-nav-item-default w-full mt-2 justify-center px-0"
+              >
+                {collapsed ? (
+                  <ChevronRight className="w-[18px] h-[18px]" />
+                ) : (
+                  <ChevronLeft className="w-[18px] h-[18px]" />
+                )}
+              </button>
+              <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 z-[60] shadow-lg">
+                {collapsed ? '展开侧边栏' : '收起侧边栏'}
+                <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
+              </div>
+            </div>
           </div>
         </div>
       </nav>
@@ -195,5 +197,3 @@ function Layout({ children }: LayoutProps) {
     </div>
   );
 }
-
-export default memo(Layout);

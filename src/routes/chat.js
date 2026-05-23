@@ -6,11 +6,12 @@ const routerService = require('../services/routerService');
 const costService = require('../services/costService');
 const cacheService = require('../utils/cache');
 const RetryService = require('../utils/retry');
+const { selectApiKey, getFirstApiKey } = require('../utils/keyRotation');
 const { authenticateApiKey } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.post(['/completions', '/chat/completions'], authenticateApiKey, async (req, res) => {
+async function handleChatCompletion(req, res) {
   const requestId = uuidv4();
   const startTime = Date.now();
   let provider;
@@ -23,7 +24,11 @@ router.post(['/completions', '/chat/completions'], authenticateApiKey, async (re
     }
 
     if (!provider_id) {
-      provider = await routerService.findBestProvider(req.apiKey.user_id, model);
+      try {
+        provider = await routerService.findBestProvider(req.apiKey.user_id, model);
+      } catch (err) {
+        return res.status(400).json({ error: err.message || 'No enabled providers found. Please add a provider in Settings.' });
+      }
     } else {
       const result = await query(
         'SELECT * FROM providers WHERE id = ? AND user_id = ? AND enabled = 1',
@@ -41,8 +46,8 @@ router.post(['/completions', '/chat/completions'], authenticateApiKey, async (re
       if (cached) {
         const latency = Date.now() - startTime;
         await run(
-          'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, prompt_tokens, completion_tokens, cost) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-          [requestId, req.apiKey.id, provider.provider_name, model, 200, latency, cached.usage.prompt_tokens, cached.usage.completion_tokens, 0]
+          'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, prompt_tokens, completion_tokens) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          [requestId, req.apiKey.id, provider.provider_name, model, 200, latency, cached.usage.prompt_tokens, cached.usage.completion_tokens]
         );
         return res.json(cached);
       }
@@ -53,7 +58,7 @@ router.post(['/completions', '/chat/completions'], authenticateApiKey, async (re
       return providerService.chatCompletion(
         {
           base_url: provider.base_url,
-          api_key: provider.api_key,
+          api_key: selectApiKey(provider.id, provider.api_key),
           provider_type: provider.provider_type,
         },
         { model, messages, max_tokens, temperature, stream }
@@ -63,12 +68,6 @@ router.post(['/completions', '/chat/completions'], authenticateApiKey, async (re
     const latency = Date.now() - startTime;
 
     if (result.isStream) {
-      await run(
-        'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, cost, request_body, response_body, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        [requestId, req.apiKey.id, provider.provider_name, model, 200, 0, 0, JSON.stringify({ model, messages }), null, new Date().toISOString()]
-      );
-      res.locals.requestId = requestId;
-
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
@@ -84,7 +83,7 @@ router.post(['/completions', '/chat/completions'], authenticateApiKey, async (re
 
       result.data.on('error', async (err) => {
         await routerService.recordProviderStatus(provider.id, false, latency);
-        res.status(500).end(JSON.stringify({ error: err.message }));
+        res.status(500).end(JSON.stringify({ error: 'Internal server error' }));
       });
 
       return;
@@ -124,23 +123,23 @@ router.post(['/completions', '/chat/completions'], authenticateApiKey, async (re
       );
 
       await routerService.recordProviderStatus(provider.id, false, latency);
-      res.status(result.status_code || 500).json({ error: result.error });
+      res.status(result.status_code || 500).json({ error: result.error || 'Provider returned an error' });
     }
   } catch (error) {
     const latency = Date.now() - startTime;
     await run(
       'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, error_message) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [requestId, req.apiKey.id, provider?.provider_name || 'unknown', req.body.model || 'unknown', 500, latency, error.message]
+      [requestId, req.apiKey.id, provider?.provider_name || 'unknown', req.body?.model || 'unknown', 500, latency, error.message || 'Unknown error']
     );
 
     if (provider) {
       await routerService.recordProviderStatus(provider.id, false, latency);
     }
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message || 'Internal server error' });
   }
-});
+}
 
-router.post('/embeddings', authenticateApiKey, async (req, res) => {
+async function handleEmbeddings(req, res) {
   const requestId = uuidv4();
   const startTime = Date.now();
 
@@ -172,7 +171,7 @@ router.post('/embeddings', authenticateApiKey, async (req, res) => {
     const result = await providerService.embeddings(
       {
         base_url: provider.base_url,
-        api_key: provider.api_key,
+        api_key: selectApiKey(provider.id, provider.api_key),
         provider_type: provider.provider_type,
       },
       { model, input, encoding_format }
@@ -191,15 +190,32 @@ router.post('/embeddings', authenticateApiKey, async (req, res) => {
         'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, error_message) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [requestId, req.apiKey.id, provider.provider_name, model, result.status_code || 500, latency, result.error]
       );
-      res.status(result.status_code || 500).json({ error: result.error });
+      res.status(result.status_code || 500).json({ error: result.error || 'Provider returned an error' });
     }
   } catch (error) {
     const latency = Date.now() - startTime;
     await run(
       'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, error_message) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [requestId, req.apiKey.id, 'unknown', req.body.model || 'unknown', 500, latency, error.message]
+      [requestId, req.apiKey.id, 'unknown', req.body?.model || 'unknown', 500, latency, error.message || 'Unknown error']
     );
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+}
+
+router.post('/chat/completions', authenticateApiKey, handleChatCompletion);
+router.post('/completions', authenticateApiKey, handleChatCompletion);
+router.post('/chat/embeddings', authenticateApiKey, handleEmbeddings);
+router.post('/embeddings', authenticateApiKey, handleEmbeddings);
+
+router.get('/chat/providers', authenticateApiKey, async (req, res) => {
+  try {
+    const result = await query(
+      'SELECT id, provider_name, provider_type, base_url, enabled, avg_latency FROM providers WHERE user_id = ? AND enabled = 1',
+      [req.apiKey.user_id]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -210,6 +226,59 @@ router.get('/providers', authenticateApiKey, async (req, res) => {
       [req.apiKey.user_id]
     );
     res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/chat/models', authenticateApiKey, async (req, res) => {
+  try {
+    const { provider_id } = req.query;
+    let providers;
+
+    if (provider_id) {
+      providers = await query(
+        'SELECT * FROM providers WHERE id = ? AND user_id = ? AND enabled = 1',
+        [provider_id, req.apiKey.user_id]
+      );
+    } else {
+      providers = await query(
+        'SELECT * FROM providers WHERE user_id = ? AND enabled = 1',
+        [req.apiKey.user_id]
+      );
+    }
+
+    if (providers.rows.length === 0) {
+      return res.json({ data: [], error: 'No enabled providers found. Please add a provider first.' });
+    }
+
+    const allModels = [];
+    const errors = [];
+    for (const provider of providers.rows) {
+      try {
+        const models = await providerService.getModels({
+          base_url: provider.base_url,
+          api_key: getFirstApiKey(provider.api_key),
+          provider_type: provider.provider_type,
+        });
+        allModels.push(...models.map(m => ({
+          ...m,
+          provider_id: provider.id,
+          provider_name: provider.provider_name,
+        })));
+      } catch (error) {
+        errors.push({
+          provider_id: provider.id,
+          provider_name: provider.provider_name,
+          error: error.message,
+        });
+      }
+    }
+
+    res.json({
+      data: allModels,
+      errors: errors.length > 0 ? errors : undefined,
+    });
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -232,12 +301,17 @@ router.get('/models', authenticateApiKey, async (req, res) => {
       );
     }
 
+    if (providers.rows.length === 0) {
+      return res.json({ data: [], error: 'No enabled providers found. Please add a provider first.' });
+    }
+
     const allModels = [];
+    const errors = [];
     for (const provider of providers.rows) {
       try {
         const models = await providerService.getModels({
           base_url: provider.base_url,
-          api_key: provider.api_key,
+          api_key: getFirstApiKey(provider.api_key),
           provider_type: provider.provider_type,
         });
         allModels.push(...models.map(m => ({
@@ -246,13 +320,20 @@ router.get('/models', authenticateApiKey, async (req, res) => {
           provider_name: provider.provider_name,
         })));
       } catch (error) {
-        continue;
+        errors.push({
+          provider_id: provider.id,
+          provider_name: provider.provider_name,
+          error: error.message,
+        });
       }
     }
 
-    res.json(allModels);
+    res.json({
+      data: allModels,
+      errors: errors.length > 0 ? errors : undefined,
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

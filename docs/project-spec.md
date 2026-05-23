@@ -1,4 +1,4 @@
-# AI API Gateway - 统一AI厂商API调用网关
+# AI API Gateway - 项目技术规范
 
 ## 1. 项目概述
 
@@ -12,498 +12,508 @@
 - **连通测试**：测试厂商API是否可用
 - **模型列表**：获取厂商支持的模型列表
 - **Apple风格设计**：前端采用精致、简洁的Apple设计风格
-- **本地友好**：使用SQLite数据库，简化本地部署和数据迁移
-
-### 1.3 技术栈总览
-
-| 层级 | 技术 | 版本 |
-|------|------|------|
-| **后端运行时** | Node.js | LTS |
-| **后端框架** | Express.js | 4.x |
-| **数据库** | SQLite (better-sqlite3) | — |
-| **认证** | JWT + bcrypt + Cookie | — |
-| **实时通信** | Socket.IO | 4.x |
-| **HTTP 客户端** | Axios | — |
-| **前端框架** | React + TypeScript | 19.x |
-| **构建工具** | Vite | 6.x |
-| **样式框架** | TailwindCSS | 3.x |
-| **状态管理** | Zustand | 5.x |
-| **图表库** | Recharts | 2.x |
-| **图标库** | Lucide React | — |
-| **路由** | React Router | 7.x |
-| **部署平台** | Vercel Serverless | — |
-
-### 1.4 部署架构
-
-```
-┌─────────────────────────────────────────────────┐
-│                  Vercel Edge                     │
-│  ┌───────────────────────────────────────────┐  │
-│  │           vercel.json 配置                 │  │
-│  │  - Runtimes: nodejs                       │  │
-│  │  - Build: npm install + Vite build        │  │
-│  │  - Routes: /api/* → api/[[...path]].js    │  │
-│  └───────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────┘
-                        │
-          ┌─────────────┴─────────────┐
-          ▼                           ▼
-┌──────────────────┐     ┌──────────────────────┐
-│  Serverless API  │     │   Static Frontend    │
-│  (Express App)   │     │   (Vite Build)       │
-│                  │     │                      │
-│  api/[[...path]] │     │  dist/assets/*.js    │
-│       .js        │     │  dist/index.html     │
-└────────┬─────────┘     └──────────────────────┘
-         │
-         ▼
-┌──────────────────┐
-│    SQLite DB      │
-│  (libSQL/Turso)  │
-└──────────────────┘
-```
+- **多Key轮询**：同一提供商支持多个API Key（逗号分隔），平均轮询调用
 
 ---
 
 ## 2. 技术架构
 
-### 2.1 整体架构图
+### 2.1 技术栈
+
+| 层级 | 技术 | 说明 |
+|------|------|------|
+| 后端 | Node.js + Express | API Gateway 核心 |
+| 数据库 | Turso (LibSQL/SQLite) | 边缘数据库，兼容 SQLite |
+| 前端 | React 19 + TypeScript + Vite | Apple 风格 Dashboard |
+| 状态管理 | Zustand | 轻量级响应式状态 |
+| 样式 | TailwindCSS | Apple 设计系统 |
+| 图表 | Recharts | 监控数据可视化 |
+| 图标 | Lucide React | 统一图标库 |
+| 认证 | JWT + bcrypt | Token + Cookie 双模式 |
+| 部署 | Vercel (Serverless) | 零运维部署 |
+
+### 2.2 整体架构
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        用户层                                   │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐ │
-│  │  REST API    │  │ Web Dashboard│  │   Socket.IO Client  │ │
-│  │   调用接口    │  │   监控面板    │  │     实时推送        │ │
-│  └──────┬───────┘  └──────┬───────┘  └──────────┬───────────┘ │
-└─────────┼─────────────────┼──────────────────────┼─────────────┘
-          │                 │                      │
-┌─────────▼─────────────────▼──────────────────────▼─────────────┐
-│                        服务层                                   │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │                    Express Gateway                       │   │
-│  │  ┌─────────┐  ┌──────────┐  ┌──────────┐  ┌─────────┐   │   │
-│  │  │ Auth    │  │ Router   │  │ Rate     │  │ Logger  │   │   │
-│  │  │ Middleware│ │  路由    │  │ Limiting │  │ 日志    │   │   │
-│  │  └────┬────┘  └────┬─────┘  └────┬─────┘  └────┬────┘   │   │
-│  │       │            │             │             │        │   │
-│  │       └────────────┼─────────────┼─────────────┘        │   │
-│  │                    ▼             ▼                      │   │
-│  │          ┌──────────────┐ ┌─────────────┐              │   │
-│  │          │  Provider    │ │  Monitor    │              │   │
-│  │          │   Service    │ │   Service   │              │   │
-│  │          │  (通用代理)   │ │   监控服务   │              │   │
-│  │          └──────┬───────┘ └──────┬──────┘              │   │
-│  └─────────────────┼────────────────┼──────────────────────┘   │
-└────────────────────┼────────────────┼───────────────────────────┘
-                     │                │
-┌────────────────────▼────────────────▼───────────────────────────┐
-│                        数据层                                   │
-│  ┌─────────────────────────────────────────────┐               │
-│  │               SQLite                       │               │
-│  │  users | api_keys | providers | requests   │               │
-│  │  audit_logs | routing_rules | batch_tasks │               │
-│  │  tools | async_tasks | cost_configs       │               │
-│  └─────────────────────────────────────────────┘               │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│                      用户层                           │
+│  ┌──────────────┐  ┌──────────────────────────────┐ │
+│  │  REST API    │  │     Web Dashboard            │ │
+│  │  调用接口     │  │  HTTP 轮询 (10s/5s 刷新)     │ │
+│  └──────┬───────┘  └──────────┬───────────────────┘ │
+└─────────┼─────────────────────┼──────────────────────┘
+          │                     │
+┌─────────▼─────────────────────▼──────────────────────┐
+│                      服务层                           │
+│  ┌─────────────────────────────────────────────────┐ │
+│  │              Express Gateway                     │ │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────────────┐│ │
+│  │  │ Auth     │ │ Key      │ │ Rate Limiting    ││ │
+│  │  │ 环境变量  │ │ Rotation │ │ 限流保护         ││ │
+│  │  └────┬─────┘ └────┬─────┘ └────────┬─────────┘│ │
+│  │       └─────────────┼───────────────┘          │ │
+│  │                     ▼                           │ │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────────────┐│ │
+│  │  │ Provider │ │ Monitor  │ │ Cost             ││ │
+│  │  │ Service  │ │ Stats    │ │ Calculator       ││ │
+│  │  │ (代理)   │ │ (统计)   │ │ (费用)           ││ │
+│  │  └────┬─────┘ └────┬─────┘ └────────┬─────────┘│ │
+│  └───────┼─────────────┼───────────────┘          │ │
+└──────────┼─────────────┼──────────────────────────┘
+           │             │
+┌──────────▼─────────────▼──────────────────────────┐
+│                      数据层                         │
+│  ┌──────────────────────────────────────────────┐ │
+│  │            Turso (LibSQL)                    │ │
+│  │  ┌────────┐ ┌─────────┐ ┌─────────────────┐ │ │
+│  │  │ users  │ │api_keys │ │   providers     │ │ │
+│  │  └────────┘ └─────────┘ └─────────────────┘ │ │
+│  │  ┌────────┐ ┌─────────────────────────────┐ │ │
+│  │  │requests│ │     custom_models           │ │ │
+│  │  └────────┘ └─────────────────────────────┘ │ │
+│  └──────────────────────────────────────────────┘ │
+└───────────────────────────────────────────────────┘
 ```
 
-### 2.2 核心组件
+### 2.3 已删除的模块
 
-| 组件 | 职责 | 技术实现 |
-|-----|------|---------|
-| **API Gateway** | 统一入口，请求路由 | Express.js |
-| **Auth Middleware** | API Key验证 + JWT认证 | JWT + bcrypt + Cookie |
-| **Provider Service** | 通用API代理服务 | Axios封装 |
-| **Monitor Service** | 实时监控统计 | Socket.IO |
-| **Router Service** | 智能路由与故障转移 | 自定义算法 |
-| **Batch Service** | 请求批处理与队列管理 | 自定义队列 |
-| **Tool Service** | 函数调用与工具执行 | 安全沙箱 |
-| **Vision Service** | 图像理解与生成 | 多模态API代理 |
-| **Webhook Service** | 回调通知与异步任务 | HTTP Client + 任务队列 |
-| **Cost Service** | 费用计算与统计 | Token价格匹配 |
-| **Quota Service** | 用户配额管理 | 每日/月度限制 |
-| **Database** | 持久化存储 | SQLite (better-sqlite3) |
-| **Frontend** | Web Dashboard | React 19 + TypeScript + Vite + TailwindCSS |
-| **State Management** | 前端状态管理 | Zustand (slices: auth, providers, stats) |
-
-### 2.3 目录结构
-
-```
-silver-telegram/
-├── api/
-│   └── [[...path]].js          # Vercel Serverless 入口
-├── src/
-│   ├── server.js               # Express 应用主入口
-│   ├── local.db                # SQLite 数据库文件
-│   ├── config/
-│   │   └── index.js            # 环境变量配置
-│   ├── middleware/
-│   │   ├── auth.js             # JWT + API Key 认证中间件
-│   │   └── rateLimit.js        # 速率限制中间件
-│   ├── routes/
-│   │   ├── auth.js             # 注册/登录/登出
-│   │   ├── apiKeys.js          # API Key CRUD
-│   │   ├── providers.js        # 厂商配置 CRUD + 测试/模型列表
-│   │   ├── chat.js             # 聊天补全（核心路由）
-│   │   ├── monitor.js          # 监控统计
-│   │   ├── audit.js            # 审计日志
-│   │   ├── cost.js             # 费用统计
-│   │   ├── routing.js          # 路由规则
-│   │   ├── batch.js            # 批处理
-│   │   ├── tools.js            # 工具注册
-│   │   ├── vision.js           # 图像理解
-│   │   ├── images.js           # 图像生成
-│   │   ├── async.js            # 异步任务
-│   │   └── webhooks.js         # Webhook 回调
-│   ├── services/
-│   │   ├── providerService.js  # 通用 AI API 代理
-│   │   ├── routerService.js    # 智能路由
-│   │   ├── batchService.js     # 批处理
-│   │   ├── toolService.js      # 工具执行
-│   │   ├── visionService.js    # 视觉分析
-│   │   ├── costService.js      # 费用计算
-│   │   ├── quotaService.js     # 配额管理
-│   │   └── auditService.js     # 审计记录
-│   └── utils/
-│       ├── db.js               # SQLite 数据库连接与初始化
-│       ├── logger.js           # 日志系统
-│       ├── cache.js            # Prompt 缓存
-│       └── retry.js            # 自动重试
-├── frontend/
-│   ├── index.html              # SPA 入口
-│   ├── vite.config.ts          # Vite 配置
-│   ├── package.json
-│   └── src/
-│       ├── main.tsx            # React 挂载入口
-│       ├── App.tsx             # 路由 + ErrorBoundary + Suspense
-│       ├── index.css           # Apple 设计 Token + 全局样式
-│       ├── store/
-│       │   └── index.ts        # Zustand Store (auth/providers/stats slices)
-│       ├── services/
-│       │   └── api.ts          # Axios 封装（拦截器、认证）
-│       ├── components/
-│       │   └── ErrorBoundary.tsx
-│       └── pages/
-│           ├── Login.tsx       # 注册/登录
-│           ├── Layout.tsx      # 导航栏布局
-│           ├── Home.tsx        # 仪表盘
-│           ├── Settings.tsx    # 厂商管理
-│           ├── ApiKeys.tsx     # API Key 管理
-│           ├── Monitor.tsx     # 实时监控
-│           └── AuditLogs.tsx   # 审计日志
-├── vercel.json                 # Vercel 部署配置
-├── package.json                # 根依赖
-└── .env.example                # 环境变量模板
-```
-
-### 2.4 数据流
-
-#### 2.4.1 API 调用流程
-
-```
-用户请求 /api/v1/completions
-    │
-    ▼
-api/[[...path]].js  → 加载 Express App
-    │
-    ▼
-Rate Limiting Middleware（检查频率限制）
-    │
-    ▼
-Auth Middleware（JWT/Cookie 认证 + API Key 验证）
-    │
-    ▼
-Chat Route（解析请求参数，获取 provider_id/model/messages）
-    │
-    ▼
-Provider Service（构造厂商 API 请求，代理转发）
-    │
-    ├──→ Router Service（智能选择最佳厂商）
-    │
-    ├──→ Cache Service（检查 Prompt 缓存命中）
-    │
-    ▼
-向厂商 API 发起 HTTP 请求（Axios + 超时 + 重试）
-    │
-    ▼
-记录调用日志 → requests 表（含 token 用量、延迟、费用）
-    │
-    ▼
-Socket.IO 推送实时监控数据 → 前端 Dashboard
-    │
-    ▼
-返回 AI 响应给用户
-```
-
-#### 2.4.2 登录认证流程
-
-```
-POST /api/auth/login
-    │
-    ▼
-Auth Route（验证 email/password）
-    │
-    ▼
-bcrypt.compare(password, hash) → 密码验证
-    │
-    ▼
-jwt.sign({ userId }, JWT_SECRET) → 生成 Token
-    │
-    ▼
-res.cookie('token', jwtToken, { httpOnly, secure, sameSite }) → Cookie
-    │
-    ▼
-前端接入：
-    ├── Cookie 模式：浏览器自动携带
-    └── Bearer Token 模式：X-API-Key Header
-```
+以下模块在迭代中已删除（用户要求简化）：
+- ~~智能路由~~ — 路由规则表、健康检查
+- ~~批处理~~ — 批处理任务表、队列管理
+- ~~工具管理~~ — 工具注册表、安全沙箱
+- ~~视觉功能~~ — 图像理解与生成
+- ~~异步任务~~ — 异步任务表、Webhook 回调
 
 ---
 
 ## 3. 数据库设计
 
-### 3.1 数据库实现说明
-- **引擎**：SQLite（`better-sqlite3` 同步驱动）
-- **文件**：`src/local.db`
-- **初始化**：`src/utils/db.js` 顺序执行 DDL（已修复竞态问题）
-- **索引优化**：已添加 user_id, api_key_id, created_at 等 7 个关键索引
+### 3.1 数据库实现
 
-### 3.2 表结构一览
+- **引擎**：Turso (LibSQL)，兼容 SQLite
+- **连接**：`TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN`
+- **本地开发**：`file:./local.db`（无需 Token）
+- **初始化**：`src/utils/db.js` — 首次启动自动建表
+- **类型转换**：`src/config/turso.js` — `extractTursoValue` 处理 Pipeline API 返回值
 
-| 表名 | 用途 | 关键字段 |
-|------|------|---------|
-| **users** | 用户账户 | id(UUID), email, password_hash, name |
-| **api_keys** | API 密钥 | id(UUID), user_id(FK), key, name, enabled |
-| **providers** | AI 厂商配置 | id(UUID), user_id(FK), provider_type, base_url, api_key |
-| **requests** | 调用记录 | id(UUID), api_key_id(FK), provider, model, status_code, latency, tokens, cost |
-| **audit_logs** | 操作审计 | id(UUID), user_id(FK), action, details, ip_address |
-| **routing_rules** | 路由规则 | id(UUID), user_id(FK), strategy, model_filter, provider_priority |
-| **batch_tasks** | 批处理任务 | id(UUID), user_id(FK), status, requests(JSON), results(JSON) |
-| **tools** | 工具注册 | id(UUID), user_id(FK), type, schema(JSON), endpoint |
-| **async_tasks** | 异步任务 | id(UUID), user_id(FK), task_type, status, payload(JSON), webhook_url |
+### 3.2 用户表 (users)
+
+| 字段名 | 类型 | 约束 | 说明 |
+|-------|------|------|------|
+| id | UUID | PRIMARY KEY | 用户唯一标识 |
+| email | VARCHAR(255) | UNIQUE, NOT NULL | 邮箱（来自 ADMIN_EMAIL 环境变量） |
+| password_hash | VARCHAR(255) | NOT NULL | 密码哈希 |
+| name | VARCHAR(100) | | 用户名 |
+| created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
+| updated_at | TIMESTAMP | DEFAULT NOW() | 更新时间 |
+
+### 3.3 API密钥表 (api_keys)
+
+| 字段名 | 类型 | 约束 | 说明 |
+|-------|------|------|------|
+| id | UUID | PRIMARY KEY | 密钥唯一标识 |
+| user_id | UUID | FOREIGN KEY | 关联用户 |
+| key | VARCHAR(64) | UNIQUE, NOT NULL | API密钥值 |
+| name | VARCHAR(100) | | 密钥名称 |
+| enabled | INTEGER | DEFAULT 1 | 是否启用（0/1，SQLite 无 BOOLEAN） |
+| created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
+| expires_at | TIMESTAMP | | 过期时间 |
+
+### 3.4 厂商配置表 (providers)
+
+| 字段名 | 类型 | 约束 | 说明 |
+|-------|------|------|------|
+| id | UUID | PRIMARY KEY | 配置唯一标识 |
+| user_id | UUID | FOREIGN KEY | 关联用户 |
+| provider_name | VARCHAR(100) | NOT NULL | 厂商名称 |
+| provider_type | VARCHAR(50) | DEFAULT 'openai' | 接口类型 |
+| api_key | VARCHAR(255) | NOT NULL | 厂商API密钥（支持逗号分隔多Key） |
+| base_url | VARCHAR(255) | NOT NULL | API基础地址 |
+| enabled | INTEGER | DEFAULT 1 | 是否启用 |
+| avg_latency | REAL | | 平均延迟(ms)，移动平均 |
+| last_success_at | TIMESTAMP | | 最后成功时间 |
+| last_failed_at | TIMESTAMP | | 最后失败时间 |
+| created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
+
+### 3.5 调用记录表 (requests)
+
+| 字段名 | 类型 | 约束 | 说明 |
+|-------|------|------|------|
+| id | UUID | PRIMARY KEY | 记录唯一标识 |
+| api_key_id | UUID | FOREIGN KEY | 关联密钥 |
+| provider | VARCHAR(100) | NOT NULL | 厂商名称 |
+| model | VARCHAR(100) | NOT NULL | 模型名称 |
+| status_code | INTEGER | NOT NULL | 状态码 |
+| latency | INTEGER | | 延迟(ms) |
+| prompt_tokens | INTEGER | | 输入token数 |
+| completion_tokens | INTEGER | | 输出token数 |
+| cost | REAL | | 调用费用 |
+| error_message | TEXT | | 错误信息 |
+| created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
+
+### 3.6 自定义模型表 (custom_models)
+
+| 字段名 | 类型 | 约束 | 说明 |
+|-------|------|------|------|
+| id | UUID | PRIMARY KEY | 模型唯一标识 |
+| user_id | UUID | FOREIGN KEY | 关联用户 |
+| provider_id | UUID | FOREIGN KEY | 关联厂商 |
+| model_id | VARCHAR(100) | NOT NULL | 模型ID |
+| model_name | VARCHAR(100) | | 显示名称 |
+| model_type | VARCHAR(50) | DEFAULT 'chat' | 模型类型 |
+| capabilities | TEXT | | 能力描述 (JSON) |
+| context_window | INTEGER | | 上下文窗口 |
+| max_output_tokens | INTEGER | | 最大输出token |
+| enabled | INTEGER | DEFAULT 1 | 是否启用 |
+| created_at | TIMESTAMP | DEFAULT NOW() | 创建时间 |
 
 ---
 
 ## 4. API接口设计
 
-### 4.1 路由路径方案
+### 4.1 认证接口
 
 | 端点 | 方法 | 描述 |
 |-----|------|------|
-| `/api/auth/register` | POST | 用户注册 |
-| `/api/auth/login` | POST | 用户登录（设置 Cookie + 返回 Token） |
-| `/api/auth/logout` | POST | 用户登出 |
-| `/api/auth/me` | GET | 当前用户信息 |
-| `/api/keys` | GET/POST | API Key 列表/创建 |
-| `/api/keys/:id` | PUT/DELETE | 更新/删除 Key |
-| `/api/providers` | GET/POST | 厂商列表/添加 |
-| `/api/providers/:id` | GET/PUT/DELETE | 厂商详情/更新/删除 |
-| `/api/providers/:id/test` | POST | 连通性测试 |
-| `/api/providers/:id/models` | GET | 模型列表 |
-| `/api/providers/:id/toggle` | POST | 启用/禁用 |
-| `/api/v1/completions` | POST | 聊天补全（核心 AI 接口） |
-| `/api/v1/chat/completions` | POST | 聊天补全（兼容路径） |
-| `/api/monitor/stats` | GET | 调用统计 |
-| `/api/monitor/history` | GET | 调用历史 |
-| `/api/monitor/hourly` | GET | 小时统计 |
+| `/api/auth/login` | POST | 用户登录（环境变量凭证，无注册） |
+| `/api/auth/me` | GET | 获取当前用户信息 |
+
+### 4.2 API密钥管理
+
+| 端点 | 方法 | 描述 |
+|-----|------|------|
+| `/api/keys` | GET | 获取密钥列表 |
+| `/api/keys` | POST | 创建新密钥 |
+| `/api/keys/:id/toggle` | PUT | 切换密钥启用/禁用 |
+| `/api/keys/:id` | DELETE | 删除密钥 |
+
+### 4.3 厂商管理
+
+| 端点 | 方法 | 描述 |
+|-----|------|------|
+| `/api/providers` | GET | 获取厂商列表 |
+| `/api/providers` | POST | 添加厂商配置 |
+| `/api/providers/:id` | PUT | 更新厂商配置 |
+| `/api/providers/:id` | DELETE | 删除厂商配置 |
+| `/api/providers/:id/test` | POST | 测试连通性 |
+| `/api/providers/:id/models` | GET | 获取模型列表 |
+
+### 4.4 AI调用接口
+
+| 端点 | 方法 | 描述 |
+|-----|------|------|
+| `/api/v1/chat/completions` | POST | 聊天补全 |
+| `/api/v1/chat/embeddings` | POST | 文本嵌入 |
+
+### 4.5 监控接口
+
+| 端点 | 方法 | 描述 |
+|-----|------|------|
+| `/api/monitor/stats` | GET | 统计信息（含 top_providers, top_models） |
 | `/api/monitor/realtime` | GET | 实时统计 |
-| `/api/audit/logs` | GET | 审计日志 |
-| `/api/routing/rules` | GET/POST | 路由规则 |
-| `/api/routing/rules/:id` | GET/PUT/DELETE | 规则 CRUD |
-| `/api/routing/healthcheck` | POST | 健康检查 |
-| `/api/batch/tasks` | GET/POST | 批处理任务 |
-| `/api/batch/tasks/:id` | GET/DELETE | 任务状态/取消 |
-| `/api/tools` | GET/POST | 工具管理 |
-| `/api/vision/analyze` | POST | 图像分析 |
-| `/api/images/generations` | POST | 图像生成 |
-| `/api/async/tasks` | GET/POST | 异步任务 |
-| `/api/cost/estimate` | POST | 费用预估 |
-| `/api/cost/history` | GET | 费用历史 |
+| `/api/monitor/daily` | GET | 每日统计（7天） |
+| `/api/monitor/requests` | GET | 请求列表 |
+| `/api/monitor/hourly` | GET | 小时统计 |
+| `/api/monitor/models` | GET | 模型统计 |
 
-### 4.2 认证方式对比
+### 4.6 自定义模型
 
-| 方式 | 场景 | 机制 |
-|------|------|------|
-| **Cookie + JWT** | Web Dashboard | `httpOnly` Cookie，自动携带 |
-| **Bearer Token** | API 调用 | `Authorization: Bearer <token>` |
-| **X-API-Key** | AI 聊天接口 | `X-API-Key: <api_key>` Header |
+| 端点 | 方法 | 描述 |
+|-----|------|------|
+| `/api/custom-models` | GET | 获取自定义模型列表 |
+| `/api/custom-models/batch` | POST | 批量创建模型 |
+| `/api/custom-models/:id/toggle` | PUT | 切换模型状态 |
+| `/api/custom-models/:id` | PUT | 更新模型 |
+| `/api/custom-models/:id` | DELETE | 删除模型 |
+
+### 4.7 诊断接口（调试用）
+
+| 端点 | 方法 | 描述 |
+|-----|------|------|
+| `/api/debug-keys` | GET | API Key 调试信息 |
+| `/api/debug-stats` | GET | 数据库统计诊断 |
+| `/api/test-request` | POST | 发送测试请求（验证数据链路） |
 
 ---
 
-## 5. 前端架构与设计
+## 5. 关键技术决策与踩坑记录
 
-### 5.1 技术栈
-- React 19 + TypeScript（函数组件 + Hooks）
-- Vite 6（构建、代理）
-- TailwindCSS 3（原子化样式 + Apple 设计 Token）
-- Zustand 5（分片状态管理：useAuthStore / useProvidersStore / useStatsStore）
-- React Router 7（页面路由 + 懒加载 + Suspense）
-- Recharts 2（数据可视化图表）
-- Lucide React（图标库）
-- Socket.IO Client（实时监控推送）
+### 5.1 Turso Pipeline API 类型陷阱
 
-### 5.2 性能优化（已完成）
-- **路由级代码拆分**：React.lazy + Suspense 懒加载（Login/Home 同步 + 其他异步）
-- **Store 拆分**：单一大 Store 拆为 3 个独立 Store（auth/providers/stats）
-- **Memoization**：Home/Layout/ApiKeys 使用 React.memo + useMemo
-- **Vite 分包**：react/recharts/lucide 拆为独立 vendor chunks
-- **首屏 JS**：从 ~800KB 降至 ~240KB（约 70% 减少）
+**问题**：Turso 的 Pipeline API 返回 `integer` 类型字段值为**字符串**（如 `"0"`, `"1"`），而非 JavaScript 的 Number。
 
-### 5.3 Apple 设计 Token
+**影响**：
+- `"0"` 在 JS 中是 truthy，导致 `if (row.enabled)` 判断错误
+- `parseInt("100")` 对已经是 Number 的值安全，但 `parseInt(100.7)` 会截断小数
+- `AVG()` 返回浮点数字符串如 `"1036.0523716109997"`
 
-定义于 [frontend/src/index.css](file:///workspace/silver-telegram/frontend/src/index.css)：
+**解决方案**：
+1. `extractTursoValue` 函数统一类型转换（`src/config/turso.js`）
+2. 所有 `enabled` 判断使用 `Number(row.enabled) === 1`
+3. 所有数值显示使用 `Math.round(Number(value))`
+4. **绝对不要**用 `parseInt` 处理 Turso 返回值
 
-```css
-:root {
-  --apple-blue: #0071e3;
-  --apple-gray-bg: #f5f5f7;
-  --apple-text: #1d1d1f;
-  --apple-text-secondary: #6e6e73;
-  --apple-border: #d2d2d7;
-  --apple-success: #34c759;
-  --apple-warning: #ff9500;
-  --apple-error: #ff3b30;
+```javascript
+// ❌ 错误
+if (row.enabled) { ... }           // "0" 是 truthy
+const latency = parseInt(row.avg); // 截断小数
+
+// ✅ 正确
+if (Number(row.enabled) === 1) { ... }
+const latency = Math.round(Number(row.avg));
+```
+
+### 5.2 Vercel 不支持 WebSocket
+
+**问题**：Monitor 页面使用 `socket.io-client` 实时推送，但 Vercel 是 Serverless 环境，WebSocket 连接无法建立。
+
+**解决方案**：
+- 移除 `socket.io-client`
+- 改用 HTTP 轮询：仪表盘 10 秒，监控页面 5 秒
+- 使用 `useCallback` 包裹 fetch 函数修复闭包问题
+
+### 5.3 useEffect + setInterval 闭包陷阱
+
+**问题**：`useEffect` 中 `setInterval(fetchData, 30000)` 捕获了初始渲染时的 `fetchData` 闭包，后续状态更新不会反映到 interval 回调中。
+
+**解决方案**：
+```tsx
+// ❌ 错误 — 闭包捕获过时状态
+useEffect(() => {
+  const fetchData = async () => { ... };
+  setInterval(fetchData, 10000);
+}, []);
+
+// ✅ 正确 — useCallback + 正确的依赖
+const fetchData = useCallback(async () => { ... }, [setProviders, setApiKeys]);
+
+useEffect(() => {
+  fetchData();
+  const id = setInterval(fetchData, 10000);
+  return () => clearInterval(id);
+}, [fetchData]);
+```
+
+### 5.4 SQLite 时区问题
+
+**问题**：`DATE('now')` 使用 UTC，中国用户需要今日数据但 UTC+8 跨日不同步。
+
+**解决方案**：
+```sql
+-- 今日请求（UTC+8）
+datetime('now', 'start of day', '-6 days')  -- daily 端点
+```
+
+### 5.5 移动平均延迟浮点精度
+
+**问题**：`routerService.recordProviderStatus` 使用 `(avg_latency * 9 + latency) / 10` 移动平均公式，SQLite 浮点除法累积精度误差，产生 `1036.0523716109997` 这样的值。
+
+**解决方案**：providers 路由返回时统一 `Math.round(Number(row.avg_latency))`，前端显示也加 `Math.round()`。
+
+### 5.6 Chat API 空错误响应
+
+**问题**：`providerService.chatCompletion` 的 catch 块使用 `error.response?.data?.error?.message || error.message`，当两者都为空时返回 `{"error": ""}`。
+
+**解决方案**：`extractErrorMessage` 方法按优先级构建错误信息：
+1. `data.error.message`（标准 OpenAI 格式）
+2. `data.message`（某些 provider 格式）
+3. `data.error`（字符串类型）
+4. `"Provider error: HTTP " + status`
+5. `"Request timeout"`（ECONNABORTED）
+6. `"Network error: " + error.code`
+7. `error.message`（兜底）
+8. `"Unknown error"`（最终兜底）
+
+### 5.7 认证系统简化
+
+**问题**：注册功能对个人开发者不必要，且存在安全风险。
+
+**解决方案**：
+- 删除 `/register` 路由
+- 登录时检查 `ADMIN_EMAIL` 和 `ADMIN_PASSWORD` 环境变量
+- 首次登录自动在数据库中创建用户（find-or-create）
+
+### 5.8 多 API Key 轮询
+
+**问题**：同一提供商需要支持多个 API Key，避免单 Key 限流。
+
+**解决方案**：
+- `api_key` 字段支持逗号分隔多个 Key
+- `keyRotation.js` 使用 Map 存储每个 provider 的计数器
+- Round-Robin 轮询选择 Key
+
+### 5.9 Vercel 构建配置
+
+**问题**：Vercel 默认构建不适用于本项目的前后端混合架构。
+
+**解决方案**：
+- 自定义 `vercel-build.js` 构建脚本
+- esbuild 打包后端为单文件
+- Vite 打包前端静态资源
+- 输出 Vercel Build Output API v3 格式
+
+### 5.10 前端性能优化
+
+**问题**：Settings 页面 INP 过高（1349ms），首屏加载慢。
+
+**解决方案**：
+1. Settings 页面拆分子组件（ProviderList, ProviderDetail, ModelModal, ModelSelector），React.memo 包裹
+2. React.lazy + Suspense 路由懒加载（Settings, ApiKeys, Monitor, AuditLogs）
+3. Vite manualChunks 代码分割（recharts, lucide-react 独立 chunk）
+4. 首屏 gzipped 约 66KB
+
+---
+
+## 6. 前端架构
+
+### 6.1 页面结构
+
+| 页面 | 文件 | 功能 |
+|------|------|------|
+| 登录 | `Login.tsx` | 环境变量凭证登录（无注册） |
+| 仪表盘 | `Home.tsx` | 统计卡片 + 7天趋势图 + Top提供商 + 实时状态，10秒自动刷新 |
+| 设置 | `Settings.tsx` | 提供商管理 + 自定义模型，拆分为4个子组件 |
+| API密钥 | `ApiKeys.tsx` | 密钥CRUD + 使用说明 |
+| 监控 | `Monitor.tsx` | 实时统计 + 请求列表，5秒自动刷新 |
+| 审计日志 | `AuditLogs.tsx` | 操作日志查看 |
+
+### 6.2 Settings 子组件
+
+| 组件 | 文件 | 功能 |
+|------|------|------|
+| ProviderList | `ProviderList.tsx` | 左侧提供商列表 |
+| ProviderDetail | `ProviderDetail.tsx` | 右侧详情面板（编辑/测试/模型） |
+| ModelModal | `ModelModal.tsx` | 添加模型弹窗 |
+| ModelSelector | `ModelSelector.tsx` | 模型选择器（标记已添加模型） |
+
+### 6.3 状态管理
+
+```typescript
+// Zustand Store 结构
+{
+  user: User | null,
+  isAuthenticated: boolean,
+  error: string | null,
+  providers: Provider[],
+  apiKeys: ApiKey[],
+  stats: Stats | null,
+
+  // Actions
+  setUser, setIsAuthenticated, setError,
+  setProviders, setApiKeys, setStats,
+  logout
 }
 ```
 
 ---
 
-## 6. Bug 修复记录（Bug Audit）
+## 7. 测试体系
 
-### 6.1 已修复 Bug 汇总（2026-05 Bug Audit）
+### 7.1 后端测试（Jest）
 
-共审计发现 **66 个 Bug**（12 Critical / 14 High / 21 Medium / 19 Low），已修复 **26 个**：
+| 测试文件 | 测试数 | 覆盖范围 |
+|---------|--------|---------|
+| `turso.test.js` | 22 | extractTursoValue, convertTursoRows, toTursoValue |
+| `keyRotation.test.js` | 15 | selectApiKey, getApiKeyCount, getFirstApiKey |
+| `cache.test.js` | 10 | set/get, delete, clear, generateCacheKey, TTL |
+| `retry.test.js` | 11 | success, retryable codes, non-retryable, max retries, backoff |
+| `auth.test.js` | 10 | authenticateToken, authenticateApiKey |
+| `apiKeys.test.js` | 8 | GET, POST, toggle, DELETE |
+| `monitor.test.js` | 7 | /realtime, /stats, /daily |
+| `chat.test.js` | 4 | INSERT recording, error recording |
+| `providerService.test.js` | 10 | extractErrorMessage 各种场景 |
 
-| 严重级别 | 发现 | 已修复 | 覆盖范围 |
-|----------|------|--------|---------|
-| **Critical** | 12 | 12 (100%) | RCE、参数传递、数据丢失、SQL 索引、配置构建 |
-| **High** | 14 | 13 (93%) | 密钥脱敏、认证健壮、数据过滤、竞态、useEffect 清理 |
-| **Medium** | 21 | 4 (19%) | 流式记录、缓存费用、错误返回、logout 调用 |
-| **Low** | 19 | 0 | 建议性优化 |
+### 7.2 前端测试（Vitest）
 
-### 6.2 关键修复项
-
-| Bug ID | 描述 | 修复文件 |
-|--------|------|---------|
-| C-1 | `eval()` RCE 风险 | `src/services/toolService.js` → 改为 `Function()` 白名单 |
-| C-2/C-3 | `chatCompletion` 参数传递错误 | `batchService.js`, `visionService.js` |
-| C-4/C-5/C-6 | 数据库索引/`lastID`/DDL 顺序 | `src/utils/db.js` |
-| C-7 | 15+ TailwindCSS 前缀缺失 | `Settings.tsx`, `Monitor.tsx`, `ApiKeys.tsx` |
-| C-8/C-9/C-10 | 认证清理/404路由/ErrorBoundary | `App.tsx`, `components/ErrorBoundary.tsx` |
-| C-11 | @types/react 版本不匹配 | `frontend/package.json` |
-| C-12 | vercel.json 根目录构建失败 | `vercel.json` buildCommand |
-| H-1 | API Key/Provider Key 脱敏 | `apiKeys.js`, `providers.js` |
-| H-11 | 图表假数据修复 | `Home.tsx` → 使用真实数据 |
+| 测试文件 | 测试数 | 覆盖范围 |
+|---------|--------|---------|
+| `Home.test.tsx` | 5 | 数据渲染, 空状态, store响应式, 10秒轮询, 卸载清理 |
+| `Monitor.test.tsx` | 2 | 统计渲染, 5秒轮询 |
+| `api.test.ts` | 4 | success, timeout, 401, token header |
 
 ---
 
-## 7. 当前已知问题（待修复）
+## 8. 环境变量
 
-### 7.1 安全合规问题
-
-| # | 问题 | 位置 | 严重度 |
-|---|------|------|--------|
-| 1 | CSP（Content-Security-Policy）被显式禁用 | `src/server.js` L42 | HIGH |
-| 2 | vercel.json 缺少安全响应头 | `vercel.json` | HIGH |
-| 3 | Vercel 环境跳过速率限制 | `src/server.js` L54 | HIGH |
-| 4 | Body 大小限制 50MB（应 ≤5MB） | `src/server.js` L64 | HIGH |
-| 5 | 错误堆栈暴露给客户端 | `api/[[...path]].js` L13 | HIGH |
-| 6 | JWT Token localStorage 存储（XSS 风险） | `Login.tsx`, `store/index.ts` | CRITICAL |
-| 7 | 未配置 trust proxy | `src/server.js` | MEDIUM |
-| 8 | CORS 缺少生产兜底 | `src/server.js` L45 | MEDIUM |
-| 9 | Cookie 缺少 path 属性 | `src/routes/auth.js` L60 | MEDIUM |
-| 10 | 登出时 Token 清理不完整 | `store/index.ts` | MEDIUM |
-
-### 7.2 性能优化项
-
-| # | 优化项 | 位置 | 影响 |
-|---|--------|------|------|
-| 1 | Vite sourcemap 在生产启用 | `vite.config.ts` | 源码泄漏风险 |
-| 2 | 未拆包依赖（zustand/router/socket） | `vite.config.ts` | 缓存命中率 |
-| 3 | vercel.json buildCommand 冗余步骤 | `vercel.json` L2 | 构建速度 |
+| 变量名 | 必填 | 默认值 | 说明 |
+|--------|------|--------|------|
+| `TURSO_DATABASE_URL` | ✅ | - | Turso 连接地址。本地用 `file:./local.db` |
+| `TURSO_AUTH_TOKEN` | 线上必填 | - | Turso 认证 Token |
+| `JWT_SECRET` | ✅ | - | JWT 签名密钥 |
+| `ADMIN_EMAIL` | ✅ | - | 管理员登录邮箱 |
+| `ADMIN_PASSWORD` | ✅ | - | 管理员登录密码 |
+| `JWT_EXPIRES_IN` | ❌ | `7d` | Token 过期时间 |
+| `PORT` | ❌ | `3000` | 本地开发端口 |
+| `NODE_ENV` | ❌ | `development` | 运行环境 |
 
 ---
 
-## 8. 部署说明
+## 9. 部署
 
-### 8.1 环境变量
+### 9.1 Vercel 部署（推荐）
 
-```env
-NODE_ENV=development          # development | production
-PORT=3000                     # 本地端口
-JWT_SECRET=xxxxxxxxxx         # JWT 签名密钥（必需）
-JWT_EXPIRES_IN=24h            # Token 过期时间
-FRONTEND_URL=http://localhost:5173  # 前端地址（CORS 用）
-LOG_LEVEL=info                # debug | info | warn | error
-```
+1. 获取 Turso 数据库（免费）：https://turso.tech/
+2. Fork 项目到 GitHub
+3. Vercel 导入项目
+4. 配置 5 个必填环境变量
+5. 部署
 
-### 8.2 本地运行
+### 9.2 本地开发
 
 ```bash
-# 安装依赖
-npm install && cd frontend && npm install && cd ..
-
-# 启动后端（终端1）
-npm start
-
-# 启动前端（终端2）
-cd frontend && npm run dev
+npm install && cd frontend && npm install
+cp .env.example .env  # 编辑环境变量
+npm run dev           # 后端 :3000
+cd frontend && npm run dev  # 前端 :5173
 ```
 
-- **后端**：http://localhost:3000
-- **前端**：http://localhost:5173（Vite 代理 `/api` → 3000）
+### 9.3 构建命令
 
-### 8.3 Vercel 部署
-
-```json
-{
-  "buildCommand": "npm install && cd frontend && npm install && npm run build",
-  "outputDirectory": "frontend/dist",
-  "rewrites": [{ "source": "/api/(.*)", "destination": "/api" }]
-}
+```bash
+node vercel-build.js  # 前后端一起构建
 ```
 
 ---
 
-## 9. 附录
+## 10. 项目结构
 
-### 9.1 技术选型决策
-
-| 决策 | 理由 |
-|------|------|
-| **通用API代理（非适配器模式）** | 用户无需为每个厂商写适配代码，支持任意 OpenAI 兼容接口 |
-| **SQLite（非 PostgreSQL）** | 个人开发场景：零配置、单文件、易迁移 |
-| **better-sqlite3（非异步驱动）** | 同步 API 简化代码，Vercel Serverless 环境单请求模式无并发瓶颈 |
-| **Zustand（非 Redux）** | 轻量、TypeScript 友好、无模板代码 |
-| **Apple 设计风格** | 大量留白、精致圆角、微妙阴影、清晰信息层级 |
-
-### 9.2 安全最佳实践（已实现）
-
-- ✅ `helmet()` 安全头中间件
-- ✅ `x-powered-by` 已禁用
-- ✅ JWT Token Cookie 设置 `httpOnly` + `secure`（生产）+ `sameSite: lax`
-- ✅ bcrypt 密码哈希（cost factor = 10）
-- ✅ `eval()` 已移除（改为 `Function()` + 白名单校验）
-- ✅ API Key / Provider Key 列表接口脱敏显示
-- ✅ 请求记录 `user_id` 隔离
-
-### 9.3 安全最佳实践（待实现）
-
-- ⬜ Helmet CSP 升级为更严格的 nonce-based 策略
-- ⬜ Trusted Types 强制执行
-- ⬜ 升级 Helmet 至 v8.x
-
-### 9.4 当前架构局限
-
-- **Serverless 冷启动**：Vercel 每次请求可能创建新 Express 实例，Socket.IO 实时推送在 Serverless 下不稳定
-- **SQLite 并发**：Serverless 环境多实例可能数据库文件冲突
-- **速率限制状态**：express-rate-limit 内存存储不持久化，Serverless 重启后丢失
-- **流式响应**：Vercel Serverless 对流式（SSE）支持有限
+```
+.
+├── src/
+│   ├── config/
+│   │   └── turso.js              # Turso 连接 + 类型转换
+│   ├── middleware/
+│   │   ├── auth.js               # JWT 认证（Token + Cookie）
+│   │   └── rateLimit.js          # 限流
+│   ├── routes/
+│   │   ├── auth.js               # 登录（环境变量凭证）
+│   │   ├── apiKeys.js            # API 密钥管理
+│   │   ├── chat.js               # AI 调用代理
+│   │   ├── providers.js          # 厂商管理
+│   │   ├── customModels.js       # 自定义模型
+│   │   └── monitor.js            # 监控统计
+│   ├── services/
+│   │   ├── providerService.js    # 通用 API 代理 + 错误处理
+│   │   ├── routerService.js      # 提供商状态记录
+│   │   └── costService.js        # 费用计算
+│   ├── utils/
+│   │   ├── db.js                 # 数据库工具
+│   │   ├── keyRotation.js        # 多 Key 轮询
+│   │   ├── cache.js              # 请求缓存
+│   │   └── retry.js              # 指数退避重试
+│   └── server.js                 # 主服务入口
+├── frontend/
+│   └── src/
+│       ├── pages/                # 页面组件
+│       ├── components/settings/  # Settings 子组件
+│       ├── services/api.ts       # API 服务层
+│       └── store/index.ts        # Zustand 状态管理
+├── vercel-build.js               # Vercel 构建脚本
+├── jest.config.js                # Jest 配置
+└── frontend/vitest.config.ts     # Vitest 配置
+```
 
 ---
 
-**版本**: v4.2.0  
-**创建日期**: 2026-05-05  
-**最后更新**: 2026-05-23  
-**状态**: 核心功能完成 + 性能优化完成 + 安全加固完成
+**版本**: v5.0.0
+**最后更新**: 2026-05-23

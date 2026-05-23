@@ -8,7 +8,7 @@ class QuotaService {
       return result.rows[0];
     }
 
-    await run('INSERT OR IGNORE INTO user_quotas (user_id) VALUES (?)', [userId]);
+    await run('INSERT INTO user_quotas (user_id) VALUES (?)', [userId]);
     const newQuota = await query('SELECT * FROM user_quotas WHERE user_id = ?', [userId]);
     return newQuota.rows[0];
   }
