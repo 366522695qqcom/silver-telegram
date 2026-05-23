@@ -83,6 +83,14 @@ router.post('/', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'provider_name, api_key, and base_url are required' });
     }
 
+    const existing = await query(
+      'SELECT id FROM providers WHERE user_id = ? AND base_url = ? AND api_key = ?',
+      [req.user.id, base_url.trim(), api_key.trim()]
+    );
+    if (existing.rows.length > 0) {
+      return res.status(409).json({ error: '该提供商已存在，请勿重复添加' });
+    }
+
     const id = uuidv4();
     await run(
       'INSERT INTO providers (id, user_id, provider_name, provider_type, api_key, base_url) VALUES (?, ?, ?, ?, ?, ?)',

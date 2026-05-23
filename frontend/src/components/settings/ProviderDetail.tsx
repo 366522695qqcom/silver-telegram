@@ -33,6 +33,7 @@ interface ProviderDetailProps {
   isTesting: boolean;
   isFetchingModels: boolean;
   showModelModal: boolean;
+  isCreatingProvider: boolean;
   onCancelCreate: () => void;
   onCreate: () => void;
   onToggleEdit: () => void;
@@ -65,7 +66,7 @@ const parseCapabilities = (capsStr: string | null | undefined) => {
   }
 };
 
-const ProviderDetail: React.FC<ProviderDetailProps> = React.memo(({
+const ProviderDetail: React.FC<ProviderDetailProps> = React.memo(({ 
   selectedProvider,
   isCreating,
   isEditing,
@@ -77,6 +78,7 @@ const ProviderDetail: React.FC<ProviderDetailProps> = React.memo(({
   isTesting,
   isFetchingModels,
   showModelModal,
+  isCreatingProvider,
   onCancelCreate,
   onCreate,
   onToggleEdit,
@@ -152,14 +154,23 @@ const ProviderDetail: React.FC<ProviderDetailProps> = React.memo(({
             <button
               onClick={onCancelCreate}
               className="apple-btn-secondary flex-1 py-3.5"
+              disabled={isCreatingProvider}
             >
               取消
             </button>
             <button
               onClick={onCreate}
-              className="apple-btn-primary flex-1 py-3.5"
+              disabled={isCreatingProvider}
+              className="apple-btn-primary flex-1 py-3.5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              创建
+              {isCreatingProvider ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>创建中...</span>
+                </>
+              ) : (
+                <span>创建</span>
+              )}
             </button>
           </div>
         </div>
@@ -326,7 +337,7 @@ const ProviderDetail: React.FC<ProviderDetailProps> = React.memo(({
                 <div className="grid grid-cols-3 gap-4">
                   <div className="text-center p-4 apple-gray-bg rounded-apple-md">
                     <p className="text-2xl font-bold text-apple-text mb-1">
-                      {(selectedProvider.avg_latency ?? 0) > 0 ? `${Math.round(selectedProvider.avg_latency)}ms` : '--'}
+                      {(selectedProvider.avg_latency ?? 0) > 0 ? `${Math.round(selectedProvider.avg_latency ?? 0)}ms` : '--'}
                     </p>
                     <p className="text-xs text-apple-text-secondary">平均延迟</p>
                   </div>

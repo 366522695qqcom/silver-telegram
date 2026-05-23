@@ -42,6 +42,7 @@ export default function Settings() {
   const [isSavingModel, setIsSavingModel] = useState(false);
   const [isAddingModels, setIsAddingModels] = useState(false);
   const [modelFilter, setModelFilter] = useState<string>('');
+  const [isCreatingProvider, setIsCreatingProvider] = useState(false);
 
   const [formData, setFormData] = useState<CreateProviderData>({
     provider_name: '',
@@ -50,23 +51,24 @@ export default function Settings() {
     base_url: 'https://api.openai.com/v1',
   });
 
-  useEffect(() => {
-    const fetchProviders = async () => {
-      try {
-        const data = await providersAPI.getAll();
-        setProviders(data);
-        if (selectedProvider) {
-          const updated = data.find((p: Provider) => p.id === selectedProvider.id);
-          if (updated) {
-            setSelectedProvider(updated);
-          }
+  const fetchProviders = useCallback(async () => {
+    try {
+      const data = await providersAPI.getAll();
+      setProviders(data);
+      if (selectedProvider) {
+        const updated = data.find((p: Provider) => p.id === selectedProvider.id);
+        if (updated) {
+          setSelectedProvider(updated);
         }
-      } catch (error) {
-        console.error('Failed to fetch providers:', error);
       }
-    };
+    } catch (error) {
+      console.error('Failed to fetch providers:', error);
+    }
+  }, [selectedProvider, setProviders]);
+
+  useEffect(() => {
     fetchProviders();
-  }, []);
+  }, [fetchProviders]);
 
   useEffect(() => {
     if (selectedProvider && selectedProvider.id) {
@@ -303,9 +305,10 @@ export default function Settings() {
   };
 
   const handleCreate = async () => {
+    if (isCreatingProvider) return;
+    setIsCreatingProvider(true);
     try {
       const newProvider = await providersAPI.create(formData);
-      setProviders([...providers, newProvider]);
       setSelectedProvider(newProvider);
       setFormData({
         provider_name: newProvider.provider_name,
@@ -314,8 +317,12 @@ export default function Settings() {
         base_url: newProvider.base_url,
       });
       setIsCreating(false);
+      await fetchProviders();
     } catch (error) {
       console.error('Failed to create provider:', error);
+      alert('创建提供商失败: ' + (error as Error).message);
+    } finally {
+      setIsCreatingProvider(false);
     }
   };
 
@@ -456,6 +463,7 @@ export default function Settings() {
               isTesting={isTesting}
               isFetchingModels={isFetchingModels}
               showModelModal={showModelModal}
+              isCreatingProvider={isCreatingProvider}
               onCancelCreate={handleCancelCreate}
               onCreate={handleCreate}
               onToggleEdit={handleToggleEdit}
