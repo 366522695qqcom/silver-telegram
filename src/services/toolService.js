@@ -90,17 +90,18 @@ class ToolService {
     try {
       const { expression } = parameters;
       if (!expression) {
+        return { success: false, error: 'expression is required' };
       }
-      const result = eval(expression);
-      return {
-        success: true,
-        result
-      };
+      if (!/^[\d+\-*/().\s]+$/.test(expression)) {
+        return { success: false, error: 'invalid expression: only basic math operations allowed' };
+      }
+      const result = Function('"use strict"; return (' + expression + ')')();
+      if (typeof result !== 'number' || !isFinite(result)) {
+        return { success: false, error: 'expression did not evaluate to a finite number' };
+      }
+      return { success: true, result };
     } catch (error) {
-      return {
-        success: false,
-        error: error.message
-      };
+      return { success: false, error: error.message };
     }
   }
 

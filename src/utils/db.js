@@ -9,7 +9,7 @@ const query = async (sql, params = []) => {
 const run = async (sql, params = []) => {
   const db = getClient();
   const result = await db.execute({ sql, args: params });
-  return { lastID: result.rows[0]?.id || null, changes: result.rowsAffected };
+  return { lastID: result.lastInsertRowid || null, changes: result.rowsAffected };
 };
 
 const initializeDatabase = async () => {
@@ -20,6 +20,7 @@ const initializeDatabase = async () => {
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
       name TEXT,
+      role TEXT DEFAULT 'user',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
@@ -151,7 +152,17 @@ const initializeDatabase = async () => {
     )`
   ];
 
-  await Promise.all(statements.map(stmt => db.execute(stmt)));
+  for (const stmt of statements) {
+    await db.execute(stmt);
+  }
+
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_requests_api_key_id ON requests(api_key_id)');
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_requests_provider ON requests(provider)');
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_requests_created_at ON requests(created_at)');
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_providers_user_id ON providers(user_id)');
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id)');
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id)');
+  await db.execute('CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at)');
 };
 
 module.exports = { query, run, initializeDatabase };

@@ -81,7 +81,7 @@ router.put('/quota', authenticateToken, async (req, res) => {
 
 router.get('/prices', authenticateToken, async (req, res) => {
   try {
-    const result = await query('SELECT * FROM prices');
+    const result = await query('SELECT * FROM prices WHERE user_id = ?', [req.user.id]);
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });

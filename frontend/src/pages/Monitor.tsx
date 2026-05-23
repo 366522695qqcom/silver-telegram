@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { monitorAPI } from '@/services/api';
 import type { Request, Stats } from '@/types';
 import { Activity, CheckCircle, XCircle, Clock, AlertTriangle, RefreshCw } from 'lucide-react';
-import { io, Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
 
 export default function Monitor() {
   const [requests, setRequests] = useState<Request[]>([]);
@@ -14,7 +14,6 @@ export default function Monitor() {
     activeConnections: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
-  const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -32,30 +31,25 @@ export default function Monitor() {
   }, []);
 
   useEffect(() => {
-    try {
-      const socketUrl = window.location.hostname === 'localhost'
-        ? 'http://localhost:3000'
-        : undefined;
-      if (socketUrl) {
-        socketRef.current = io(socketUrl, {
-          reconnectionAttempts: 3,
-          timeout: 5000,
-        });
-        socketRef.current.on('stats', (newStats: Stats) => {
-          setStats(newStats);
-        });
-        socketRef.current.on('connect_error', () => {
-          socketRef.current?.disconnect();
-        });
-      }
-    } catch {
-      // socket.io not available (Vercel serverless)
-    }
-
+    const socketUrl = window.location.hostname === 'localhost' 
+      ? 'http://localhost:3000' 
+      : window.location.origin;
+    const socket = io(socketUrl, { transports: ['websocket', 'polling'] });
+    
+    const handleStats = (newStats: Stats) => {
+      setStats(newStats);
+    };
+    const handleError = () => {
+      console.warn('Socket connection error');
+    };
+    
+    socket.on('stats', handleStats);
+    socket.on('connect_error', handleError);
+    
     return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
+      socket.off('stats', handleStats);
+      socket.off('connect_error', handleError);
+      socket.disconnect();
     };
   }, []);
 
@@ -201,7 +195,7 @@ export default function Monitor() {
               key={index}
               className="apple-card group"
             >
-              <div className={`w-12 h-12 apple-lg ${colorMap[card.color as keyof typeof colorMap]} flex items-center justify-center mb-4 transition-all duration-300 group-hover:scale-105`}>
+              <div className={`w-12 h-12 rounded-apple-lg ${colorMap[card.color as keyof typeof colorMap]} flex items-center justify-center mb-4 transition-all duration-300 group-hover:scale-105`}>
                 <Icon className="w-6 h-6" />
               </div>
               <p className="text-sm text-apple-text-secondary mb-1">{card.label}</p>
@@ -238,7 +232,7 @@ export default function Monitor() {
               {requests.map((request) => (
                 <div
                   key={request.id}
-                  className="p-4 bg-apple-gray-bg apple-md hover:bg-apple-border-light transition-all duration-200"
+                  className="p-4 bg-apple-gray-bg rounded-apple-md hover:bg-apple-border-light transition-all duration-200"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
@@ -267,7 +261,7 @@ export default function Monitor() {
                     )}
                   </div>
                   {request.error_message && (
-                    <div className="mt-2 p-2 bg-apple-error/10 apple-sm text-xs text-apple-error">
+                    <div className="mt-2 p-2 bg-apple-error/10 rounded-apple-sm text-xs text-apple-error">
                       {request.error_message}
                     </div>
                   )}
@@ -294,9 +288,9 @@ export default function Monitor() {
                   {successRate}%
                 </span>
               </div>
-              <div className="h-2 bg-apple-border-light apple-md overflow-hidden">
+              <div className="h-2 bg-apple-border-light rounded-apple-md overflow-hidden">
                 <div 
-                  className={`h-full apple-md transition-all duration-700 ease-out ${
+                  className={`h-full rounded-apple-md transition-all duration-700 ease-out ${
                     statusColors[getSuccessRateStatus() as keyof typeof statusColors].bar
                   }`}
                   style={{ width: `${successRate}%` }}
@@ -304,19 +298,19 @@ export default function Monitor() {
               </div>
             </div>
 
-            <div className="p-4 bg-apple-gray-bg apple-lg">
+            <div className="p-4 bg-apple-gray-bg rounded-apple-lg">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-apple-text-secondary">今日请求</span>
                 <span className="font-semibold text-apple-text apple-stat-value">{stats.totalRequests}</span>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className={`text-center p-3 apple-md ${statusColors.success.bg}`}>
+                <div className={`text-center p-3 rounded-apple-md ${statusColors.success.bg}`}>
                   <p className={`text-2xl font-semibold ${statusColors.success.text} apple-stat-value`}>
                     {stats.successCount}
                   </p>
                   <p className={`text-xs ${statusColors.success.text} mt-1`}>成功</p>
                 </div>
-                <div className={`text-center p-3 apple-md ${statusColors.error.bg}`}>
+                <div className={`text-center p-3 rounded-apple-md ${statusColors.error.bg}`}>
                   <p className={`text-2xl font-semibold ${statusColors.error.text} apple-stat-value`}>
                     {stats.errorCount}
                   </p>
@@ -325,7 +319,7 @@ export default function Monitor() {
               </div>
             </div>
 
-            <div className="p-4 bg-apple-blue/10 apple-lg">
+            <div className="p-4 bg-apple-blue/10 rounded-apple-lg">
               <div className="flex items-center justify-between">
                 <span className="text-apple-blue">活跃连接数</span>
                 <span className="text-2xl font-semibold text-apple-blue apple-stat-value">
@@ -334,7 +328,7 @@ export default function Monitor() {
               </div>
             </div>
 
-            <div className="p-4 bg-purple-500/10 apple-lg">
+            <div className="p-4 bg-purple-500/10 rounded-apple-lg">
               <div className="flex items-center justify-between">
                 <span className="text-purple-600">平均延迟</span>
                 <span className="text-2xl font-semibold text-purple-600 apple-stat-value">

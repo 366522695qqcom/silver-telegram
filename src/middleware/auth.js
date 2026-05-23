@@ -36,29 +36,34 @@ const authenticateToken = async (req, res, next) => {
 };
 
 const authenticateApiKey = async (req, res, next) => {
-  const apiKey = req.headers['x-api-key'];
+  try {
+    const apiKey = req.headers['x-api-key'];
 
-  if (!apiKey) {
-    return res.status(401).json({ error: 'API key required' });
+    if (!apiKey) {
+      return res.status(401).json({ error: 'API key required' });
+    }
+
+    const result = await query(
+      'SELECT ak.*, u.id as user_id FROM api_keys ak JOIN users u ON ak.user_id = u.id WHERE ak.key = ? AND ak.enabled = 1',
+      [apiKey]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid or disabled API key' });
+    }
+
+    const apiKeyData = result.rows[0];
+
+    if (apiKeyData.expires_at && new Date(apiKeyData.expires_at) < new Date()) {
+      return res.status(401).json({ error: 'API key has expired' });
+    }
+
+    req.apiKey = apiKeyData;
+    next();
+  } catch (error) {
+    console.error('API Key authentication error:', error.message);
+    return res.status(500).json({ error: 'Authentication service unavailable' });
   }
-
-  const result = await query(
-    'SELECT ak.*, u.id as user_id FROM api_keys ak JOIN users u ON ak.user_id = u.id WHERE ak.key = ? AND ak.enabled = 1',
-    [apiKey]
-  );
-
-  if (result.rows.length === 0) {
-    return res.status(401).json({ error: 'Invalid or disabled API key' });
-  }
-
-  const apiKeyData = result.rows[0];
-
-  if (apiKeyData.expires_at && new Date(apiKeyData.expires_at) < new Date()) {
-    return res.status(401).json({ error: 'API key has expired' });
-  }
-
-  req.apiKey = apiKeyData;
-  next();
 };
 
 const checkApiKeyPermissions = (model, provider) => {

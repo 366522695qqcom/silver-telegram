@@ -1,4 +1,11 @@
 require('dotenv').config();
+
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is not set');
+  console.error('Please set JWT_SECRET in your .env file or environment variables');
+  process.exit(1);
+}
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -33,28 +40,32 @@ app.use((req, res, next) => {
 });
 
 app.use(helmet({
-  contentSecurityPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+    },
+  },
 }));
+app.set('trust proxy', 1);
 app.use(cors({
   origin: [
     'http://localhost:5173',
     'http://localhost:3000',
-    process.env.FRONTEND_URL,
+    process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? 'https://mybiog.us.ci' : undefined),
   ].filter(Boolean),
   credentials: true,
 }));
 
-if (!isVercel) {
-  const rateLimit = require('express-rate-limit');
-  const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-    message: 'Too many requests from this IP, please try again later.',
-  });
-  app.use('/api/', apiLimiter);
-}
+const rateLimit = require('express-rate-limit');
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: 'Too many requests from this IP, please try again later.',
+});
+app.use('/api/', apiLimiter);
 
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 

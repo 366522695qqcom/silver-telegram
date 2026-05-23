@@ -8,7 +8,11 @@ const router = express.Router();
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const result = await query('SELECT id, name, key, enabled, created_at, expires_at FROM api_keys WHERE user_id = ?', [req.user.id]);
-    res.json(result.rows);
+    const masked = result.rows.map(k => ({
+      ...k,
+      key: k.key ? k.key.slice(0, 8) + '****' + k.key.slice(-4) : null
+    }));
+    res.json(masked);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Internal server error' });

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useStore } from '@/store';
+import { useProvidersStore } from '@/store';
 import { providersAPI } from '@/services/api';
 import type { Provider, CreateProviderData, Model, TestConnectionResult } from '@/types';
 import { 
@@ -20,7 +20,8 @@ import {
 } from 'lucide-react';
 
 export default function Settings() {
-  const { providers, setProviders } = useStore();
+  const providers = useProvidersStore(s => s.providers);
+  const setProviders = useProvidersStore(s => s.setProviders);
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
   const [models, setModels] = useState<Model[]>([]);
   const [isCreating, setIsCreating] = useState(false);
@@ -38,15 +39,17 @@ export default function Settings() {
   });
 
   useEffect(() => {
+    let cancelled = false;
     const fetchProviders = async () => {
       try {
         const data = await providersAPI.getAll();
-        setProviders(data);
+        if (!cancelled) setProviders(data);
       } catch (error) {
-        console.error('Failed to fetch providers:', error);
+        if (!cancelled) console.error('Failed to fetch providers:', error);
       }
     };
     fetchProviders();
+    return () => { cancelled = true; };
   }, []);
 
   const [lastFetchProviderId, setLastFetchProviderId] = useState<string | null>(null);
@@ -345,7 +348,7 @@ export default function Settings() {
                 <div className="apple-card rounded-apple-md p-5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-apple-sm apple-gray-bg flex items-center justify-center">
+                      <div className="w-12 h-12 rounded-apple-sm bg-apple-gray-bg flex items-center justify-center">
                         <ToggleRight className="w-6 h-6 text-apple-text-secondary" />
                       </div>
                       <div>
@@ -374,7 +377,7 @@ export default function Settings() {
 
                 <div className="apple-card rounded-apple-md p-5">
                   <div className="flex items-center gap-3 mb-5">
-                    <div className="w-10 h-10 rounded-apple-sm apple-blue/10 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-apple-sm bg-apple-blue/10 flex items-center justify-center">
                       <Globe className="w-5 h-5 text-apple-blue" />
                     </div>
                     <span className="font-semibold text-apple-text text-lg">连接信息</span>
@@ -395,25 +398,25 @@ export default function Settings() {
 
                 <div className="apple-card rounded-apple-md p-5">
                   <div className="flex items-center gap-3 mb-5">
-                    <div className="w-10 h-10 rounded-apple-sm apple-blue/10 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-apple-sm bg-apple-blue/10 flex items-center justify-center">
                       <Clock className="w-5 h-5 text-apple-blue" />
                     </div>
                     <span className="font-semibold text-apple-text text-lg">性能统计</span>
                   </div>
                   <div className="grid grid-cols-3 gap-4">
-                    <div className="text-center p-4 apple-gray-bg rounded-apple-md">
+                    <div className="text-center p-4 bg-apple-gray-bg rounded-apple-md">
                       <p className="text-2xl font-bold text-apple-text mb-1">
                         {(selectedProvider.avg_latency ?? 0) > 0 ? `${selectedProvider.avg_latency}ms` : '--'}
                       </p>
                       <p className="text-xs text-apple-text-secondary">平均延迟</p>
                     </div>
-                    <div className="text-center p-4 apple-gray-bg rounded-apple-md">
+                    <div className="text-center p-4 bg-apple-gray-bg rounded-apple-md">
                       <p className="text-sm font-semibold text-apple-text mb-1">
                         {formatDate(selectedProvider.last_success_at ?? null)}
                       </p>
                       <p className="text-xs text-apple-text-secondary">最后成功</p>
                     </div>
-                    <div className="text-center p-4 apple-gray-bg rounded-apple-md">
+                    <div className="text-center p-4 bg-apple-gray-bg rounded-apple-md">
                       <p className="text-sm font-semibold text-apple-text mb-1">
                         {formatDate(selectedProvider.last_failed_at ?? null)}
                       </p>
@@ -502,7 +505,7 @@ export default function Settings() {
                 {models.length > 0 ? (
                   <div className="apple-card rounded-apple-md p-5">
                     <div className="flex items-center gap-3 mb-5">
-                      <div className="w-10 h-10 rounded-apple-sm apple-blue/10 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-apple-sm bg-apple-blue/10 flex items-center justify-center">
                         <Key className="w-5 h-5 text-apple-blue" />
                       </div>
                       <span className="font-semibold text-apple-text text-lg">可用模型</span>

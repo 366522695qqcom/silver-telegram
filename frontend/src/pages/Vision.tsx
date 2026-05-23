@@ -213,7 +213,7 @@ export default function Vision() {
                   {result.result.data.map((item: any, idx: number) => (
                     <img
                       key={idx}
-                      src={item.url || item.b64_json ? `data:image/png;base64,${item.b64_json}` : ''}
+                      src={item.url ? item.url : (item.b64_json ? `data:image/png;base64,${item.b64_json}` : '')}
                       alt="Generated"
                       className="max-w-full rounded-lg"
                     />

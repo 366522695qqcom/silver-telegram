@@ -31,13 +31,8 @@ router.get('/realtime', authenticateToken, async (req, res) => {
       activeConnections: 1,
     });
   } catch (error) {
-    res.json({
-      totalRequests: 0,
-      successCount: 0,
-      errorCount: 0,
-      avgLatency: 0,
-      activeConnections: 0,
-    });
+    console.error('Failed to get realtime stats:', error.message);
+    return res.status(500).json({ error: 'Failed to fetch realtime statistics' });
   }
 });
 

@@ -24,9 +24,10 @@ class CostService {
     }
 
     const modelLower = model.toLowerCase();
-    for (const [key, price] of Object.entries(DEFAULT_PRICES)) {
-      if (modelLower.includes(key)) {
-        return price;
+    const sortedKeys = Object.keys(DEFAULT_PRICES).sort((a, b) => b.length - a.length);
+    for (const key of sortedKeys) {
+      if (modelLower === key || modelLower.startsWith(key + '-') || modelLower.startsWith(key + '.')) {
+        return DEFAULT_PRICES[key];
       }
     }
 

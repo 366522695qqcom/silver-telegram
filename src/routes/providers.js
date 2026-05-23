@@ -12,7 +12,11 @@ router.get('/', authenticateToken, async (req, res) => {
       'SELECT id, provider_name, provider_type, base_url, enabled, created_at, api_key, avg_latency, last_success_at, last_failed_at FROM providers WHERE user_id = ?',
       [req.user.id]
     );
-    res.json(result.rows);
+    const masked = result.rows.map(p => ({
+      ...p,
+      api_key: p.api_key ? p.api_key.slice(0, 8) + '****' + p.api_key.slice(-4) : null
+    }));
+    res.json(masked);
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });
   }

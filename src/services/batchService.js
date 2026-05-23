@@ -94,12 +94,12 @@ class BatchService {
 
   static async executeSingleRequest(request, provider, index) {
     try {
-      const result = await ProviderService.chatCompletion(
-        provider,
-        request.model,
-        request.messages,
-        request
-      );
+      const result = await ProviderService.chatCompletion(provider, {
+        model: request.model,
+        messages: request.messages,
+        ...(request.max_tokens && { max_tokens: request.max_tokens }),
+        ...(request.temperature != null && { temperature: request.temperature }),
+      });
       return {
         index,
         success: true,

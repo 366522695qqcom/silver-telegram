@@ -3,7 +3,7 @@ const { query, run } = require('../utils/db');
 class RouterService {
   async findProviderByModel(userId, model) {
     const result = await query(
-      'SELECT p.* FROM providers p JOIN api_keys ak ON p.user_id = ak.user_id WHERE p.user_id = ? AND p.enabled = 1 ORDER BY p.created_at DESC',
+      'SELECT * FROM providers WHERE user_id = ? AND enabled = 1 ORDER BY avg_latency ASC NULLS LAST',
       [userId]
     );
 

@@ -10,7 +10,7 @@ const { authenticateApiKey } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.post('/completions', authenticateApiKey, async (req, res) => {
+router.post(['/completions', '/chat/completions'], authenticateApiKey, async (req, res) => {
   const requestId = uuidv4();
   const startTime = Date.now();
   let provider;
@@ -41,8 +41,8 @@ router.post('/completions', authenticateApiKey, async (req, res) => {
       if (cached) {
         const latency = Date.now() - startTime;
         await run(
-          'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, prompt_tokens, completion_tokens) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-          [requestId, req.apiKey.id, provider.provider_name, model, 200, latency, cached.usage.prompt_tokens, cached.usage.completion_tokens]
+          'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, prompt_tokens, completion_tokens, cost) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [requestId, req.apiKey.id, provider.provider_name, model, 200, latency, cached.usage.prompt_tokens, cached.usage.completion_tokens, 0]
         );
         return res.json(cached);
       }
@@ -63,6 +63,12 @@ router.post('/completions', authenticateApiKey, async (req, res) => {
     const latency = Date.now() - startTime;
 
     if (result.isStream) {
+      await run(
+        'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, cost, request_body, response_body, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [requestId, req.apiKey.id, provider.provider_name, model, 200, 0, 0, JSON.stringify({ model, messages }), null, new Date().toISOString()]
+      );
+      res.locals.requestId = requestId;
+
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');

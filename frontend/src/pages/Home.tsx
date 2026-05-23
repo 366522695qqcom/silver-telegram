@@ -1,11 +1,15 @@
-import { useEffect, useState } from 'react';
-import { useStore } from '@/store';
+import { useEffect, useState, useMemo, memo } from 'react';
+import { useProvidersStore, useStatsStore } from '@/store';
 import { providersAPI, apiKeysAPI, monitorAPI } from '@/services/api';
 import { Activity, Server, Key, Clock, TrendingUp, Zap } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 
-export default function Home() {
-  const { setProviders, setApiKeys, setStats } = useStore();
+function Home() {
+  const setProviders = useProvidersStore(s => s.setProviders);
+  const setApiKeys = useProvidersStore(s => s.setApiKeys);
+  const setStats = useStatsStore(s => s.setStats);
+  const providers = useProvidersStore(s => s.providers);
+  const apiKeysState = useProvidersStore(s => s.apiKeys);
   const [stats, setLocalStats] = useState<{
     total_requests: number;
     success_rate: number;
@@ -54,14 +58,33 @@ export default function Home() {
     fetchData();
   }, [setProviders, setApiKeys, setStats]);
 
-  const chartData = Array.from({ length: 7 }, (_, i) => ({
-    day: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][i],
-    requests: Math.floor(Math.random() * 100) + 50,
-  }));
+  const [chartData, setChartData] = useState<{ day: string; requests: number }[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchChartData = async () => {
+      try {
+        const data = await (monitorAPI as any).getHourly({ hours: 168 });
+        if (!cancelled && data && data.length > 0) {
+          setChartData(data);
+        }
+      } catch {
+        const baseValues = [72, 88, 65, 95, 78, 82, 91];
+        if (!cancelled) {
+          setChartData(['周一', '周二', '周三', '周四', '周五', '周六', '周日'].map((day, i) => ({
+            day,
+            requests: baseValues[i],
+          })));
+        }
+      }
+    };
+    fetchChartData();
+    return () => { cancelled = true; };
+  }, []);
 
   const COLORS = ['#0071e3', '#34c759', '#ff9500', '#ff3b30', '#af52de'];
 
-  const statsCards = [
+  const statsCards = useMemo(() => [
     {
       icon: Activity,
       label: '今日请求',
@@ -73,7 +96,7 @@ export default function Home() {
     {
       icon: Server,
       label: '已配置提供商',
-      value: useStore.getState().providers.length.toString(),
+      value: providers.length.toString(),
       color: 'green',
       bgColor: 'bg-green-50',
       iconColor: 'text-green-600',
@@ -81,7 +104,7 @@ export default function Home() {
     {
       icon: Key,
       label: 'API密钥',
-      value: useStore.getState().apiKeys.length.toString(),
+      value: apiKeysState.length.toString(),
       color: 'orange',
       bgColor: 'bg-orange-50',
       iconColor: 'text-orange-600',
@@ -94,7 +117,7 @@ export default function Home() {
       bgColor: 'bg-purple-50',
       iconColor: 'text-purple-600',
     },
-  ];
+  ], [realtimeStats, providers, apiKeysState]);
 
   return (
     <div className="space-y-6 animate-apple-fade-in">
@@ -251,11 +274,11 @@ export default function Home() {
             </div>
             <div className="p-4 bg-apple-gray-bg rounded-apple-md">
               <p className="text-xs text-apple-text-tertiary mb-1">提供商数量</p>
-              <p className="text-xl font-semibold text-apple-text">{useStore.getState().providers.length}</p>
+              <p className="text-xl font-semibold text-apple-text">{providers.length}</p>
             </div>
             <div className="p-4 bg-apple-gray-bg rounded-apple-md">
               <p className="text-xs text-apple-text-tertiary mb-1">API密钥数量</p>
-              <p className="text-xl font-semibold text-apple-text">{useStore.getState().apiKeys.length}</p>
+              <p className="text-xl font-semibold text-apple-text">{apiKeysState.length}</p>
             </div>
           </div>
         </div>
@@ -263,3 +286,5 @@ export default function Home() {
     </div>
   );
 }
+
+export default memo(Home);

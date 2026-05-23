@@ -13,12 +13,11 @@ class VisionService {
       }
     ];
 
-    const response = await ProviderService.chatCompletion(
-      provider,
-      provider.provider_type === 'anthropic' ? 'claude-3-opus-20240229' : 'gpt-4-vision-preview',
+    const response = await ProviderService.chatCompletion(provider, {
+      model: 'gpt-4-vision-preview',
       messages,
-      { max_tokens: 1000 }
-    );
+      max_tokens: 1000
+    });
 
     return {
       success: true,
@@ -50,12 +49,13 @@ class VisionService {
   }
 
   static async visionChat(provider, messages, options = {}) {
-    const response = await ProviderService.chatCompletion(
-      provider,
-      options.model || (provider.provider_type === 'anthropic' ? 'claude-3-opus-20240229' : 'gpt-4-vision-preview'),
+    const model = options.model || (provider.provider_type === 'anthropic' ? 'claude-3-opus-20240229' : 'gpt-4-vision-preview');
+    const { model: _model, ...restOptions } = options;
+    const response = await ProviderService.chatCompletion(provider, {
+      model,
       messages,
-      options
-    );
+      ...restOptions
+    });
 
     return {
       success: true,
