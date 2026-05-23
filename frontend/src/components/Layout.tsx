@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -17,20 +17,21 @@ import {
   Eye,
   Zap
 } from 'lucide-react';
-import { useStore } from '@/store';
+import { useAuthStore } from '@/store';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
-export default function Layout({ children }: LayoutProps) {
+function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout, user } = useStore();
+  const logout = useAuthStore(s => s.logout);
+  const user = useAuthStore(s => s.user);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const navItems = [
+  const navItems = useMemo(() => [
     { icon: LayoutDashboard, path: '/home', label: '仪表盘' },
     { icon: Server, path: '/settings', label: '提供商管理' },
     { icon: Key, path: '/api-keys', label: 'API密钥' },
@@ -41,7 +42,7 @@ export default function Layout({ children }: LayoutProps) {
     { icon: Wrench, path: '/tools', label: '工具管理' },
     { icon: Eye, path: '/vision', label: '视觉功能' },
     { icon: Zap, path: '/async', label: '异步任务' },
-  ];
+  ], []);
 
   const handleLogout = () => {
     logout();
@@ -194,3 +195,5 @@ export default function Layout({ children }: LayoutProps) {
     </div>
   );
 }
+
+export default memo(Layout);
