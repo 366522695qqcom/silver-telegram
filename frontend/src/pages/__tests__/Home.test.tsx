@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import { useStore } from '@/store';
 import { providersAPI, apiKeysAPI, monitorAPI } from '@/services/api';
 import Home from '../Home';
@@ -34,6 +34,8 @@ vi.mock('lucide-react', () => {
     Clock: createIcon('Clock'),
     TrendingUp: createIcon('TrendingUp'),
     Zap: createIcon('Zap'),
+    RefreshCw: createIcon('RefreshCw'),
+    FlaskConical: createIcon('FlaskConical'),
   };
 });
 
@@ -170,6 +172,93 @@ describe('Home', () => {
         const elements = screen.getAllByText('1');
         expect(elements.length).toBeGreaterThanOrEqual(1);
       });
+    });
+  });
+
+  describe('Auto-refresh poll logic', () => {
+    it('auto-refreshes every 10 seconds', async () => {
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+
+      vi.mocked(monitorAPI.getStats).mockResolvedValue({
+        total_requests: 0,
+        today_requests: 0,
+        success_rate: 0,
+        avg_latency_ms: 0,
+        top_providers: [],
+        top_models: [],
+        provider_stats: [],
+      });
+      vi.mocked(monitorAPI.getRealtimeStats).mockResolvedValue({
+        totalRequests: 0,
+        successCount: 0,
+        errorCount: 0,
+        avgLatency: 0,
+        activeConnections: 0,
+      });
+      vi.mocked(monitorAPI.getDaily).mockResolvedValue([]);
+      vi.mocked(providersAPI.getAll).mockResolvedValue([]);
+      vi.mocked(apiKeysAPI.getAll).mockResolvedValue([]);
+
+      render(<Home />);
+
+      await act(async () => {
+        vi.advanceTimersByTime(0);
+        await Promise.resolve();
+      });
+
+      expect(monitorAPI.getStats).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        vi.advanceTimersByTime(10000);
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(monitorAPI.getStats).toHaveBeenCalledTimes(2);
+
+      vi.useRealTimers();
+    });
+
+    it('clears interval on unmount', async () => {
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+
+      vi.mocked(monitorAPI.getStats).mockResolvedValue({
+        total_requests: 0,
+        today_requests: 0,
+        success_rate: 0,
+        avg_latency_ms: 0,
+        top_providers: [],
+        top_models: [],
+        provider_stats: [],
+      });
+      vi.mocked(monitorAPI.getRealtimeStats).mockResolvedValue({
+        totalRequests: 0,
+        successCount: 0,
+        errorCount: 0,
+        avgLatency: 0,
+        activeConnections: 0,
+      });
+      vi.mocked(monitorAPI.getDaily).mockResolvedValue([]);
+      vi.mocked(providersAPI.getAll).mockResolvedValue([]);
+      vi.mocked(apiKeysAPI.getAll).mockResolvedValue([]);
+
+      const { unmount } = render(<Home />);
+
+      await waitFor(() => expect(monitorAPI.getStats).toHaveBeenCalled());
+
+      const initialCallCount = vi.mocked(monitorAPI.getStats).mock.calls.length;
+
+      unmount();
+
+      await act(async () => {
+        vi.advanceTimersByTime(20000);
+      });
+
+      expect(monitorAPI.getStats).toHaveBeenCalledTimes(initialCallCount);
+
+      vi.useRealTimers();
     });
   });
 });

@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useStore } from '@/store';
 import { providersAPI, apiKeysAPI, monitorAPI } from '@/services/api';
-import { Activity, Server, Key, Clock, TrendingUp, Zap, FlaskConical } from 'lucide-react';
+import { Activity, Server, Key, Clock, TrendingUp, Zap, FlaskConical, RefreshCw } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 
 export default function Home() {
@@ -28,9 +28,10 @@ export default function Home() {
     activeConnections: 0,
   });
   const [chartData, setChartData] = useState<{ day: string; requests: number }[]>([]);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [prov, keys, monitorStats, realtime, daily] = await Promise.all([
         providersAPI.getAll(),
@@ -47,10 +48,11 @@ export default function Home() {
         day: d.label,
         requests: d.count,
       })));
+      setLastUpdated(new Date());
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
     }
-  };
+  }, [setProviders, setApiKeys]);
 
   const [sendingTest, setSendingTest] = useState(false);
 
@@ -72,12 +74,12 @@ export default function Home() {
 
     fetchData();
 
-    intervalRef.current = setInterval(fetchData, 30000);
+    intervalRef.current = setInterval(fetchData, 10000);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [setProviders, setApiKeys]);
+  }, [fetchData]);
 
   const COLORS = ['#0071e3', '#34c759', '#ff9500', '#ff3b30', '#af52de'];
 
@@ -241,7 +243,15 @@ export default function Home() {
             <h3 className="text-base font-semibold text-apple-text tracking-tight">实时状态</h3>
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-apple-success animate-pulse" />
-              <span className="text-xs text-apple-text-tertiary">30秒刷新</span>
+              <span className="text-xs text-apple-text-tertiary">10秒刷新</span>
+              {lastUpdated && (
+                <span className="text-xs text-apple-text-tertiary">
+                  更新于 {lastUpdated.toLocaleTimeString('zh-CN')}
+                </span>
+              )}
+              <button onClick={() => { fetchData(); }} className="p-1 hover:bg-gray-100 rounded transition-colors">
+                <RefreshCw className="w-3.5 h-3.5 text-apple-text-secondary" />
+              </button>
             </div>
           </div>
           <div className="space-y-4">

@@ -91,8 +91,8 @@ describe('Monitor', () => {
   });
 
   describe('Auto-refresh poll logic', () => {
-    it('calls getRealtimeStats and getRequests at least twice after 15 seconds', async () => {
-      vi.useFakeTimers({ toFake: ['setInterval'] });
+    it('auto-refreshes every 5 seconds', async () => {
+      vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
 
       vi.mocked(monitorAPI.getRequests).mockResolvedValue([sampleRequest]);
       vi.mocked(monitorAPI.getRealtimeStats).mockResolvedValue(mockRealtimeStats);
@@ -108,7 +108,7 @@ describe('Monitor', () => {
       expect(monitorAPI.getRequests).toHaveBeenCalledTimes(1);
 
       await act(async () => {
-        vi.advanceTimersByTime(15000);
+        vi.advanceTimersByTime(5000);
       });
 
       await act(async () => {

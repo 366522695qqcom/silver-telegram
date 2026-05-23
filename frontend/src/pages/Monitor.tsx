@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { monitorAPI } from '@/services/api';
 import type { Request, Stats } from '@/types';
 import { Activity, CheckCircle, XCircle, Clock, AlertTriangle, RefreshCw } from 'lucide-react';
@@ -13,9 +13,10 @@ export default function Monitor() {
     activeConnections: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
     try {
       const [requestData, statsData] = await Promise.all([
         monitorAPI.getRequests(1, 50),
@@ -23,22 +24,23 @@ export default function Monitor() {
       ]);
       setRequests(requestData);
       setStats(statsData);
+      setLastUpdated(new Date());
     } catch (error) {
       console.error('Failed to fetch monitor data:', error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchAllData();
 
-    intervalRef.current = setInterval(fetchAllData, 15000);
+    intervalRef.current = setInterval(fetchAllData, 5000);
 
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, []);
+  }, [fetchAllData]);
 
   const refreshData = async () => {
     setIsLoading(true);
@@ -258,7 +260,12 @@ export default function Monitor() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-apple-success opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-apple-success"></span>
             </span>
-            <span className="text-xs text-apple-text-tertiary ml-1">15秒刷新</span>
+            <span className="text-xs text-apple-text-tertiary ml-1">5秒刷新</span>
+            {lastUpdated && (
+              <span className="text-xs text-apple-text-tertiary ml-1">
+                更新于 {lastUpdated.toLocaleTimeString('zh-CN')}
+              </span>
+            )}
           </div>
           
           <div className="space-y-6">
