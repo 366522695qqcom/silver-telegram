@@ -1,5 +1,5 @@
 import Cookies from 'js-cookie';
-import type { User, Provider, ApiKey, Request, AuditLog, ModelListResponse, LoginData, RegisterData, CreateProviderData, CreateApiKeyData, TestConnectionResult, CustomModel, CreateCustomModelData } from '@/types';
+import type { User, Provider, ApiKey, Request, AuditLog, ModelListResponse, LoginData, CreateProviderData, CreateApiKeyData, TestConnectionResult, CustomModel, CreateCustomModelData } from '@/types';
 
 const request = async <T>(url: string, options: RequestInit = {}, timeout: number = 8000): Promise<T> => {
   const headers: Record<string, string> = {
@@ -57,13 +57,6 @@ const request = async <T>(url: string, options: RequestInit = {}, timeout: numbe
 export const authAPI = {
   login: async (data: LoginData): Promise<{ user: User; token: string }> => {
     return request('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
-
-  register: async (data: RegisterData): Promise<{ user: User; token: string }> => {
-    return request('/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
     });

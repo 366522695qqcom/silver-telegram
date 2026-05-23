@@ -82,11 +82,6 @@ export interface LoginData {
   password: string;
 }
 
-export interface RegisterData {
-  email: string;
-  password: string;
-}
-
 export interface CreateProviderData {
   provider_name: string;
   provider_type: string;
