@@ -130,6 +130,67 @@ app.get('/api/debug-stats', async (req, res) => {
   }
 });
 
+app.post('/api/test-request', async (req, res) => {
+  try {
+    startDbInit();
+    await Promise.race([
+      dbInitPromise,
+      new Promise(r => setTimeout(r, 5000))
+    ]);
+    if (!dbReady) {
+      return res.status(500).json({ error: 'Database not ready', dbStatus: dbErrorType });
+    }
+
+    const { authenticateToken } = require('./middleware/auth');
+    const authHeader = req.headers['authorization'];
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Login token required' });
+    }
+
+    const jwt = require('jsonwebtoken');
+    let userId;
+    try {
+      const decoded = jwt.verify(authHeader.split(' ')[1], process.env.JWT_SECRET);
+      userId = decoded.id;
+    } catch {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+
+    const apiKeyResult = await query('SELECT id FROM api_keys WHERE user_id = ? LIMIT 1', [userId]);
+    if (apiKeyResult.rows.length === 0) {
+      return res.status(400).json({ error: 'No API key found. Please create an API key first.' });
+    }
+    const apiKeyId = apiKeyResult.rows[0].id;
+
+    const { v4: uuidv4 } = require('uuid');
+    const id = uuidv4();
+    const providers = ['openai', 'anthropic', 'google'];
+    const models = ['gpt-4', 'claude-3-sonnet', 'gemini-pro'];
+    const idx = Math.floor(Math.random() * 3);
+    const provider = providers[idx];
+    const model = models[idx];
+    const latency = Math.floor(Math.random() * 2000) + 100;
+    const statusCode = Math.random() > 0.1 ? 200 : 429;
+    const promptTokens = Math.floor(Math.random() * 500) + 50;
+    const completionTokens = Math.floor(Math.random() * 500) + 50;
+    const cost = (promptTokens * 0.00003 + completionTokens * 0.00006).toFixed(6);
+
+    await run(
+      'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, prompt_tokens, completion_tokens, cost) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, apiKeyId, provider, model, statusCode, latency, promptTokens, completionTokens, cost]
+    );
+
+    res.json({
+      success: true,
+      message: 'Test request recorded successfully',
+      request: { id: id.substring(0, 8), provider, model, status_code: statusCode, latency, prompt_tokens: promptTokens, completion_tokens: completionTokens, cost: Number(cost) },
+      hint: 'Refresh the dashboard to see updated stats',
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/ping', async (req, res) => {
   const start = Date.now();
   const token = process.env.LIBSQL_AUTH_TOKEN || '';

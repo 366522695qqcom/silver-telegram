@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useStore } from '@/store';
 import { providersAPI, apiKeysAPI, monitorAPI } from '@/services/api';
-import { Activity, Server, Key, Clock, TrendingUp, Zap } from 'lucide-react';
+import { Activity, Server, Key, Clock, TrendingUp, Zap, FlaskConical } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 
 export default function Home() {
@@ -49,6 +49,20 @@ export default function Home() {
       })));
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
+    }
+  };
+
+  const [sendingTest, setSendingTest] = useState(false);
+
+  const handleSendTestRequest = async () => {
+    setSendingTest(true);
+    try {
+      await monitorAPI.sendTestRequest();
+      await fetchData();
+    } catch (error) {
+      console.error('Failed to send test request:', error);
+    } finally {
+      setSendingTest(false);
     }
   };
 
@@ -162,7 +176,15 @@ export default function Home() {
             <div className="h-[280px] flex flex-col items-center justify-center text-apple-text-secondary">
               <Activity className="w-12 h-12 mb-3 opacity-40" />
               <p className="text-sm">暂无请求数据</p>
-              <p className="text-xs text-apple-text-tertiary mt-1">通过 API 发送请求后查看</p>
+              <p className="text-xs text-apple-text-tertiary mt-1 mb-3">发送测试请求验证数据链路</p>
+              <button
+                onClick={handleSendTestRequest}
+                disabled={sendingTest}
+                className="apple-btn-primary text-xs px-4 py-2 flex items-center gap-1.5"
+              >
+                <FlaskConical className="w-3.5 h-3.5" />
+                {sendingTest ? '发送中...' : '发送测试请求'}
+              </button>
             </div>
           )}
         </div>
@@ -199,7 +221,15 @@ export default function Home() {
             <div className="h-[280px] flex flex-col items-center justify-center text-apple-text-secondary">
               <Server className="w-12 h-12 mb-3 opacity-40" />
               <p className="text-sm">暂无数据</p>
-              <p className="text-xs text-apple-text-tertiary mt-1">配置提供商后查看</p>
+              <p className="text-xs text-apple-text-tertiary mt-1 mb-3">发送测试请求生成数据</p>
+              <button
+                onClick={handleSendTestRequest}
+                disabled={sendingTest}
+                className="apple-btn-primary text-xs px-4 py-2 flex items-center gap-1.5"
+              >
+                <FlaskConical className="w-3.5 h-3.5" />
+                {sendingTest ? '发送中...' : '发送测试请求'}
+              </button>
             </div>
           )}
         </div>

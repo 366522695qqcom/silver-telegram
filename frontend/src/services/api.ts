@@ -201,6 +201,10 @@ export const monitorAPI = {
   }> => {
     return request('/monitor/realtime');
   },
+
+  sendTestRequest: async (): Promise<{ success: boolean; message: string; request: Record<string, unknown> }> => {
+    return request('/test-request', { method: 'POST' });
+  },
 };
 
 export const auditAPI = {
