@@ -8,10 +8,17 @@ const router = express.Router();
 
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const result = await query(
-      'SELECT cm.*, p.provider_name FROM custom_models cm LEFT JOIN providers p ON cm.provider_id = p.id WHERE cm.user_id = ? ORDER BY cm.created_at DESC',
-      [req.user.id]
-    );
+    const { provider_id } = req.query;
+    let sql = 'SELECT cm.*, p.provider_name FROM custom_models cm LEFT JOIN providers p ON cm.provider_id = p.id WHERE cm.user_id = ?';
+    const params = [req.user.id];
+
+    if (provider_id) {
+      sql += ' AND cm.provider_id = ?';
+      params.push(provider_id);
+    }
+
+    sql += ' ORDER BY cm.created_at DESC';
+    const result = await query(sql, params);
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: 'Internal server error' });

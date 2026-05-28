@@ -267,8 +267,11 @@ export const costAPI = {
 };
 
 export const customModelsAPI = {
-  getAll: async (): Promise<CustomModel[]> => {
-    return request('/custom-models');
+  getAll: async (providerId?: string): Promise<CustomModel[]> => {
+    const params = new URLSearchParams();
+    if (providerId) params.set('provider_id', providerId);
+    const qs = params.toString();
+    return request(`/custom-models${qs ? `?${qs}` : ''}`);
   },
   create: async (data: CreateCustomModelData): Promise<CustomModel> => {
     return request('/custom-models', {

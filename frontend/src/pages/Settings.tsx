@@ -74,13 +74,15 @@ export default function Settings() {
 
   useEffect(() => {
     if (selectedProvider && selectedProvider.id) {
-      fetchCustomModels();
+      fetchCustomModels(selectedProvider.id);
+    } else {
+      setCustomModels([]);
     }
   }, [selectedProvider?.id]);
 
-  const fetchCustomModels = async () => {
+  const fetchCustomModels = async (providerId?: string) => {
     try {
-      const data = await customModelsAPI.getAll();
+      const data = await customModelsAPI.getAll(providerId);
       setCustomModels(data);
     } catch (error) {
       console.error('Failed to fetch custom models:', error);
@@ -151,7 +153,7 @@ export default function Settings() {
     } catch (error) {
       console.error('Failed to save model:', error);
       closeModelModal();
-      fetchCustomModels();
+      fetchCustomModels(selectedProvider?.id);
       alert('保存模型失败: ' + (error as Error).message);
     } finally {
       setIsSavingModel(false);
@@ -285,7 +287,7 @@ export default function Settings() {
     } catch (error) {
       console.error('Failed to add models:', error);
       alert('添加模型失败: ' + (error as Error).message);
-      fetchCustomModels();
+      fetchCustomModels(selectedProvider?.id);
     } finally {
       setIsAddingModels(false);
     }
