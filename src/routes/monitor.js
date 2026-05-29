@@ -4,6 +4,11 @@ const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
+router.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
+
 router.get('/realtime', authenticateToken, async (req, res) => {
   try {
     const totalRequests = await query(

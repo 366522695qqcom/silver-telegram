@@ -29,6 +29,7 @@ export default function Home() {
   });
   const [chartData, setChartData] = useState<{ day: string; requests: number }[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -53,6 +54,16 @@ export default function Home() {
       console.error('Failed to fetch dashboard data:', error);
     }
   }, [setProviders, setApiKeys]);
+
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await fetchData();
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const [sendingTest, setSendingTest] = useState(false);
 
@@ -249,8 +260,8 @@ export default function Home() {
                   更新于 {lastUpdated.toLocaleTimeString('zh-CN')}
                 </span>
               )}
-              <button onClick={() => { fetchData(); }} className="p-1 hover:bg-gray-100 rounded transition-colors">
-                <RefreshCw className="w-3.5 h-3.5 text-apple-text-secondary" />
+              <button onClick={handleRefresh} disabled={refreshing} className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-50">
+                <RefreshCw className={`w-3.5 h-3.5 text-apple-text-secondary ${refreshing ? 'animate-spin' : ''}`} />
               </button>
             </div>
           </div>

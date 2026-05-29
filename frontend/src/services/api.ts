@@ -24,6 +24,7 @@ const request = async <T>(url: string, options: RequestInit = {}, timeout: numbe
       headers,
       credentials: 'include',
       signal: controller.signal,
+      cache: 'no-store',
     });
 
     clearTimeout(timeoutId);
