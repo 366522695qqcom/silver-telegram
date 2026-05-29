@@ -42,7 +42,17 @@ const ModelSelector: React.FC<ModelSelectorProps> = React.memo(({
   onAddSelectedModels,
 }) => {
   const [searchExpanded, setSearchExpanded] = useState(false);
+  const [iconSliding, setIconSliding] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const handleSearchClick = () => {
+    if (searchExpanded) return;
+    setIconSliding(true);
+    setTimeout(() => {
+      setSearchExpanded(true);
+      setIconSliding(false);
+    }, 200);
+  };
 
   useEffect(() => {
     if (searchExpanded && searchInputRef.current) {
@@ -67,14 +77,14 @@ const ModelSelector: React.FC<ModelSelectorProps> = React.memo(({
         </div>
 
         <div className="px-6 py-3 border-b apple-border-light flex-shrink-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center">
             <button
-              onClick={() => setSearchExpanded(!searchExpanded)}
+              onClick={handleSearchClick}
               className="flex-shrink-0 p-2 rounded-apple-sm hover:bg-apple-gray-bg transition-colors"
             >
-              <Search className="w-4 h-4 text-apple-text-secondary" />
+              <Search className={`w-4 h-4 text-apple-text-secondary ${iconSliding ? 'animate-icon-slide-right' : ''}`} />
             </button>
-            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${searchExpanded ? 'w-full opacity-100' : 'w-0 opacity-0'}`}>
+            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${searchExpanded ? 'w-full opacity-100 ml-2' : 'w-0 opacity-0'}`}>
               <input
                 ref={searchInputRef}
                 type="text"

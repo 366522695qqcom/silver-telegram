@@ -175,6 +175,18 @@ html {
   }
 }
 
+@keyframes iconSlideRight {
+  0% {
+    transform: translateX(0);
+  }
+  40% {
+    transform: translateX(20px);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
 @layer utilities {
   .animate-fade-in {
     animation: fadeIn 0.2s ease-out forwards;
@@ -182,5 +194,9 @@ html {
   
   .animate-scale-in {
     animation: scaleIn 0.2s ease-out forwards;
+  }
+
+  .animate-icon-slide-right {
+    animation: iconSlideRight 0.4s ease-out forwards;
   }
 }
