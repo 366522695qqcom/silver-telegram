@@ -41,7 +41,6 @@ export default function Settings() {
   const [modelSearchQuery, setModelSearchQuery] = useState('');
   const [isSavingModel, setIsSavingModel] = useState(false);
   const [isAddingModels, setIsAddingModels] = useState(false);
-  const [modelFilter, setModelFilter] = useState<string>('');
   const [isCreatingProvider, setIsCreatingProvider] = useState(false);
   const selectedProviderIdRef = useRef<string | null>(null);
 
@@ -222,16 +221,15 @@ export default function Settings() {
     }
   };
 
-  const handleFetchModels = async (filter?: string) => {
+  const handleFetchModels = async () => {
     if (!selectedProvider) return;
     setIsFetchingModels(true);
     setAvailableModels([]);
     setSelectedModels(new Set());
     setModelSearchQuery('');
-    const activeFilter = filter ?? modelFilter;
     setShowModelSelector(true);
     try {
-      const result = await providersAPI.getModels(selectedProvider.id, activeFilter || undefined);
+      const result = await providersAPI.getModels(selectedProvider.id);
       setAvailableModels(result.models || []);
     } catch (error) {
       console.error('Failed to fetch models:', error);
@@ -518,15 +516,12 @@ export default function Settings() {
       isFetchingModels={isFetchingModels}
       isAddingModels={isAddingModels}
       existingModelIds={new Set(customModels.filter(cm => cm.provider_id === selectedProvider?.id).map(cm => cm.model_id))}
-      modelFilter={modelFilter}
       onClose={() => setShowModelSelector(false)}
       onSearchQueryChange={setModelSearchQuery}
       onSelectAll={handleSelectAllModels}
       onDeselectAll={deselectAllModels}
       onToggleModel={toggleModelSelection}
       onAddSelectedModels={handleAddSelectedModels}
-      onFilterChange={setModelFilter}
-      onRefetchWithFilter={(filter) => handleFetchModels(filter)}
     />
     </>
   );
