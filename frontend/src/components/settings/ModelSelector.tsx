@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   X,
   Search,
@@ -41,6 +41,15 @@ const ModelSelector: React.FC<ModelSelectorProps> = React.memo(({
   onToggleModel,
   onAddSelectedModels,
 }) => {
+  const [searchExpanded, setSearchExpanded] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (searchExpanded && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [searchExpanded]);
+
   if (!showModelSelector) return null;
 
   const filteredModels = availableModels.filter(m =>
@@ -58,15 +67,23 @@ const ModelSelector: React.FC<ModelSelectorProps> = React.memo(({
         </div>
 
         <div className="px-6 py-3 border-b apple-border-light flex-shrink-0">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-apple-text-secondary" />
-            <input
-              type="text"
-              value={modelSearchQuery}
-              onChange={(e) => onSearchQueryChange(e.target.value)}
-              placeholder="搜索模型..."
-              className="apple-input w-full pl-9 text-apple-text bg-white"
-            />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSearchExpanded(!searchExpanded)}
+              className="flex-shrink-0 p-2 rounded-apple-sm hover:bg-apple-gray-bg transition-colors"
+            >
+              <Search className="w-4 h-4 text-apple-text-secondary" />
+            </button>
+            <div className={`overflow-hidden transition-all duration-300 ease-in-out ${searchExpanded ? 'w-full opacity-100' : 'w-0 opacity-0'}`}>
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={modelSearchQuery}
+                onChange={(e) => onSearchQueryChange(e.target.value)}
+                placeholder="搜索模型..."
+                className="apple-input w-full text-apple-text bg-white"
+              />
+            </div>
           </div>
           <div className="flex gap-2 mt-2">
             <button onClick={() => onSelectAll(filteredModels.map(m => m.id))} className="text-xs text-purple-600 hover:text-purple-700 font-medium">全选</button>
