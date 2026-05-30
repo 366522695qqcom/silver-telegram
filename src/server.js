@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
-const { initializeDatabase, query } = require('./utils/db');
+const { initializeDatabase, query, run } = require('./utils/db');
 
 const authRoutes = require('./routes/auth');
 const providersRoutes = require('./routes/providers');
@@ -162,30 +162,90 @@ app.post('/api/test-request', async (req, res) => {
     }
     const apiKeyId = apiKeyResult.rows[0].id;
 
+    const { model } = req.body || {};
     const { v4: uuidv4 } = require('uuid');
     const id = uuidv4();
-    const providers = ['openai', 'anthropic', 'google'];
-    const models = ['gpt-4', 'claude-3-sonnet', 'gemini-pro'];
-    const idx = Math.floor(Math.random() * 3);
-    const provider = providers[idx];
-    const model = models[idx];
-    const latency = Math.floor(Math.random() * 2000) + 100;
-    const statusCode = Math.random() > 0.1 ? 200 : 429;
-    const promptTokens = Math.floor(Math.random() * 500) + 50;
-    const completionTokens = Math.floor(Math.random() * 500) + 50;
-    const cost = (promptTokens * 0.00003 + completionTokens * 0.00006).toFixed(6);
 
-    await run(
-      'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, prompt_tokens, completion_tokens, cost) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, apiKeyId, provider, model, statusCode, latency, promptTokens, completionTokens, cost]
-    );
+    if (model) {
+      const providerService = require('./services/providerService');
+      const routerService = require('./services/routerService');
+      const { selectApiKey } = require('./utils/keyRotation');
+      const costService = require('./services/costService');
 
-    res.json({
-      success: true,
-      message: 'Test request recorded successfully',
-      request: { id: id.substring(0, 8), provider, model, status_code: statusCode, latency, prompt_tokens: promptTokens, completion_tokens: completionTokens, cost: Number(cost) },
-      hint: 'Refresh the dashboard to see updated stats',
-    });
+      let provider;
+      try {
+        provider = await routerService.findBestProvider(userId, model);
+      } catch (err) {
+        return res.status(400).json({ error: err.message || 'No enabled providers found for this model.' });
+      }
+
+      const startTime = Date.now();
+      const result = await providerService.chatCompletion(
+        {
+          base_url: provider.base_url,
+          api_key: selectApiKey(provider.id, provider.api_key),
+          provider_type: provider.provider_type,
+        },
+        {
+          model,
+          messages: [{ role: 'user', content: 'Say "Hello" in one word.' }],
+          max_tokens: 10,
+          temperature: 0,
+          stream: false,
+        }
+      );
+      const latency = Date.now() - startTime;
+
+      if (result.success) {
+        const promptTokens = result.data.usage?.prompt_tokens || 0;
+        const completionTokens = result.data.usage?.completion_tokens || 0;
+        const cost = await costService.calculateCost(provider.provider_name, model, promptTokens, completionTokens);
+
+        await run(
+          'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, prompt_tokens, completion_tokens, cost) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [id, apiKeyId, provider.provider_name, model, 200, latency, promptTokens, completionTokens, cost]
+        );
+
+        res.json({
+          success: true,
+          message: 'Real AI API test request completed',
+          request: { id: id.substring(0, 8), provider: provider.provider_name, model, status_code: 200, latency, prompt_tokens: promptTokens, completion_tokens: completionTokens, cost: Number(cost) || 0 },
+        });
+      } else {
+        await run(
+          'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, error_message) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [id, apiKeyId, provider.provider_name, model, result.status_code || 500, latency, result.error]
+        );
+
+        res.json({
+          success: false,
+          message: `AI API test failed: ${result.error}`,
+          request: { id: id.substring(0, 8), provider: provider.provider_name, model, status_code: result.status_code || 500, latency, error: result.error },
+        });
+      }
+    } else {
+      const providers = ['openai', 'anthropic', 'google'];
+      const models = ['gpt-4', 'claude-3-sonnet', 'gemini-pro'];
+      const idx = Math.floor(Math.random() * 3);
+      const provider = providers[idx];
+      const fakeModel = models[idx];
+      const latency = Math.floor(Math.random() * 2000) + 100;
+      const statusCode = Math.random() > 0.1 ? 200 : 429;
+      const promptTokens = Math.floor(Math.random() * 500) + 50;
+      const completionTokens = Math.floor(Math.random() * 500) + 50;
+      const cost = (promptTokens * 0.00003 + completionTokens * 0.00006).toFixed(6);
+
+      await run(
+        'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, prompt_tokens, completion_tokens, cost) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [id, apiKeyId, provider, fakeModel, statusCode, latency, promptTokens, completionTokens, cost]
+      );
+
+      res.json({
+        success: true,
+        message: 'Simulated test request recorded',
+        request: { id: id.substring(0, 8), provider, model: fakeModel, status_code: statusCode, latency, prompt_tokens: promptTokens, completion_tokens: completionTokens, cost: Number(cost) },
+      });
+    }
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

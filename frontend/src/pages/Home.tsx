@@ -29,19 +29,17 @@ export default function Home() {
   });
   const [chartData, setChartData] = useState<{ day: string; requests: number }[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const monitorIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const configIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchMonitorData = useCallback(async () => {
     try {
-      const [prov, keys, monitorStats, realtime, daily] = await Promise.all([
-        providersAPI.getAll(),
-        apiKeysAPI.getAll(),
+      const [monitorStats, realtime, daily] = await Promise.all([
         monitorAPI.getStats(),
         monitorAPI.getRealtimeStats(),
         monitorAPI.getDaily(),
       ]);
-      setProviders(prov);
-      setApiKeys(keys);
       setStats(monitorStats);
       setRealtimeStats(realtime);
       setChartData(daily.map((d: { label: string; count: number }) => ({
@@ -50,17 +48,40 @@ export default function Home() {
       })));
       setLastUpdated(new Date());
     } catch (error) {
-      console.error('Failed to fetch dashboard data:', error);
+      console.error('Failed to fetch monitor data:', error);
+    }
+  }, []);
+
+  const fetchConfigData = useCallback(async () => {
+    try {
+      const [prov, keys] = await Promise.all([
+        providersAPI.getAll(),
+        apiKeysAPI.getAll(),
+      ]);
+      setProviders(prov);
+      setApiKeys(keys);
+    } catch (error) {
+      console.error('Failed to fetch config data:', error);
     }
   }, [setProviders, setApiKeys]);
+
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await Promise.all([fetchMonitorData(), fetchConfigData()]);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const [sendingTest, setSendingTest] = useState(false);
 
   const handleSendTestRequest = async () => {
     setSendingTest(true);
     try {
-      await monitorAPI.sendTestRequest();
-      await fetchData();
+      await monitorAPI.sendTestRequest('gpt-4o-mini-2024-07-18');
+      await fetchMonitorData();
     } catch (error) {
       console.error('Failed to send test request:', error);
     } finally {
@@ -72,14 +93,16 @@ export default function Home() {
     const token = localStorage.getItem('token');
     if (!token) return;
 
-    fetchData();
+    Promise.all([fetchMonitorData(), fetchConfigData()]);
 
-    intervalRef.current = setInterval(fetchData, 10000);
+    monitorIntervalRef.current = setInterval(fetchMonitorData, 10000);
+    configIntervalRef.current = setInterval(fetchConfigData, 30000);
 
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (monitorIntervalRef.current) clearInterval(monitorIntervalRef.current);
+      if (configIntervalRef.current) clearInterval(configIntervalRef.current);
     };
-  }, [fetchData]);
+  }, [fetchMonitorData, fetchConfigData]);
 
   const COLORS = ['#0071e3', '#34c759', '#ff9500', '#ff3b30', '#af52de'];
 
@@ -249,8 +272,8 @@ export default function Home() {
                   更新于 {lastUpdated.toLocaleTimeString('zh-CN')}
                 </span>
               )}
-              <button onClick={() => { fetchData(); }} className="p-1 hover:bg-gray-100 rounded transition-colors">
-                <RefreshCw className="w-3.5 h-3.5 text-apple-text-secondary" />
+              <button onClick={handleRefresh} disabled={refreshing} className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-50">
+                <RefreshCw className={`w-3.5 h-3.5 text-apple-text-secondary ${refreshing ? 'animate-spin' : ''}`} />
               </button>
             </div>
           </div>
