@@ -64,7 +64,7 @@ export default function Monitor() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('zh-CN');
+    return new Date(dateString).toLocaleString(navigator.language);
   };
 
   const getStatusIcon = (statusCode: number) => {
@@ -279,7 +279,7 @@ export default function Monitor() {
             <span className="text-xs text-apple-text-tertiary ml-1">5秒刷新</span>
             {lastUpdated && (
               <span className="text-xs text-apple-text-tertiary ml-1">
-                更新于 {lastUpdated.toLocaleTimeString('zh-CN')}
+                更新于 {lastUpdated.toLocaleTimeString(navigator.language)}
               </span>
             )}
           </div>

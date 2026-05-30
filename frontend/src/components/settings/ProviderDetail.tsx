@@ -54,7 +54,7 @@ interface ProviderDetailProps {
 
 const formatDate = (dateString: string | null) => {
   if (!dateString) return 'N/A';
-  return new Date(dateString).toLocaleString('zh-CN');
+  return new Date(dateString).toLocaleString(navigator.language);
 };
 
 const parseCapabilities = (capsStr: string | null | undefined) => {

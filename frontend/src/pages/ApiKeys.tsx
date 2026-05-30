@@ -140,7 +140,7 @@ export default function ApiKeys() {
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '永久有效';
-    return new Date(dateString).toLocaleDateString('zh-CN');
+    return new Date(dateString).toLocaleDateString(navigator.language);
   };
 
   const apiBaseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
@@ -355,7 +355,7 @@ export default function ApiKeys() {
                     </td>
                     <td className="px-6 py-4">
                       <span className="text-sm text-apple-text-secondary">
-                        {new Date(apiKey.created_at).toLocaleDateString('zh-CN')}
+                        {new Date(apiKey.created_at).toLocaleDateString(navigator.language)}
                       </span>
                     </td>
                     <td className="px-6 py-4">

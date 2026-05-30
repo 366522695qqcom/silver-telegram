@@ -3,6 +3,8 @@ const { query } = require('../utils/db');
 const { authenticateToken } = require('../middleware/auth');
 const NodeCache = require('node-cache');
 
+const TZ_OFFSET = parseInt(process.env.TZ_OFFSET || '8', 10);
+
 const monitorCache = new NodeCache({
   stdTTL: 3,
   checkperiod: 10,
@@ -66,7 +68,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
           COUNT(*) as total_count,
           SUM(CASE WHEN status_code = 200 THEN 1 ELSE 0 END) as success_count,
           AVG(latency) as avg_latency,
-          SUM(CASE WHEN created_at >= datetime('now', '-8 hours', 'start of day', '+8 hours') THEN 1 ELSE 0 END) as today_count
+          SUM(CASE WHEN created_at >= datetime('now', '${-TZ_OFFSET} hours', 'start of day', '${TZ_OFFSET} hours') THEN 1 ELSE 0 END) as today_count
         FROM requests WHERE api_key_id IN (SELECT id FROM api_keys WHERE user_id = ?)`,
         [req.user.id]
       ),

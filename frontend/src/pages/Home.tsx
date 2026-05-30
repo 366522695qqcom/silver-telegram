@@ -292,7 +292,7 @@ export default function Home() {
               <span className="text-xs text-apple-text-tertiary">10秒刷新</span>
               {lastUpdated && (
                 <span className="text-xs text-apple-text-tertiary">
-                  更新于 {lastUpdated.toLocaleTimeString('zh-CN')}
+                  更新于 {lastUpdated.toLocaleTimeString(navigator.language)}
                 </span>
               )}
               <button onClick={handleRefresh} disabled={refreshing} className="p-1 hover:bg-gray-100 rounded transition-colors disabled:opacity-50">

@@ -32,7 +32,7 @@ export default function AuditLogs() {
   }, [page]);
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('zh-CN');
+    return new Date(dateString).toLocaleString(navigator.language);
   };
 
   const getActionBadge = (action: string) => {
