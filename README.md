@@ -70,17 +70,21 @@
 
 | 变量名 | 必填 | 说明 | 示例值 |
 |--------|------|------|--------|
-| `TURSO_DATABASE_URL` | ✅ | Turso 数据库连接地址 | `libsql://ai-gateway-xxx.turso.io` |
-| `TURSO_AUTH_TOKEN` | ✅ | Turso 数据库认证 Token | `eyJhbGciOi...` |
+| `LIBSQL_URL` | ✅ | Turso 数据库连接地址 | `libsql://ai-gateway-xxx.turso.io` |
+| `LIBSQL_AUTH_TOKEN` | ✅ | Turso 数据库认证 Token | `eyJhbGciOi...` |
 | `JWT_SECRET` | ✅ | JWT 签名密钥，随意填写一串随机字符 | `my-s3cret-key-abc123` |
 | `ADMIN_EMAIL` | ✅ | 管理员登录邮箱 | `admin@example.com` |
 | `ADMIN_PASSWORD` | ✅ | 管理员登录密码 | `MySecureP@ss123` |
 | `JWT_EXPIRES_IN` | ❌ | Token 过期时间，默认 `7d` | `7d` |
+| `APP_DOMAIN` | ❌ | 应用域名，用于 CORS 和 Cookie（如 `mybiog.us.ci`） | `mybiog.us.ci` |
+| `TZ_OFFSET` | ❌ | 时区偏移（小时），用于 SQL"今日"统计，默认 `8`（UTC+8） | `8` |
+| `FRONTEND_URL` | ❌ | 前端地址，本地开发用 | `http://localhost:5173` |
+| `LOG_LEVEL` | ❌ | 日志级别，默认 `info` | `info` |
 
 > **说明**：
 > - `ADMIN_EMAIL` 和 `ADMIN_PASSWORD` 是你登录后台的账号密码，自己设定即可
 > - `JWT_SECRET` 建议使用随机字符串，如 `openssl rand -hex 32` 生成
-> - 数据库表会在首次启动时自动创建，无需手动建表
+> - 数据库表会在首次启动时自动创建，无需手动建表；`APP_DOMAIN` 填写你的域名（不含 `https://`），用于跨域和 Cookie 配置；`TZ_OFFSET` 根据你的时区填写，中国用户默认 `8` 即可
 
 #### 第 5 步：部署
 
@@ -128,8 +132,8 @@ cp .env.example .env
 
 ```env
 # 数据库 - 本地开发可使用本地 SQLite 文件
-TURSO_DATABASE_URL=file:./local.db
-TURSO_AUTH_TOKEN=
+LIBSQL_URL=file:./local.db
+LIBSQL_AUTH_TOKEN=
 
 # JWT 密钥 - 随意填写
 JWT_SECRET=dev-secret-key
@@ -137,9 +141,15 @@ JWT_SECRET=dev-secret-key
 # 登录凭证 - 自己设定
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=admin123
+
+# 应用域名 (部署时设置)
+APP_DOMAIN=
+
+# 时区偏移 (UTC+8 填 8，默认 8)
+TZ_OFFSET=8
 ```
 
-> 本地开发时 `TURSO_AUTH_TOKEN` 可以留空，`TURSO_DATABASE_URL` 使用 `file:./local.db` 即可在本地创建 SQLite 文件。
+> 本地开发时 `LIBSQL_AUTH_TOKEN` 可以留空，`LIBSQL_URL` 使用 `file:./local.db` 即可在本地创建 SQLite 文件。
 
 #### 启动服务
 
@@ -158,14 +168,18 @@ node vercel-build.js
 
 | 变量名 | 必填 | 默认值 | 说明 |
 |--------|------|--------|------|
-| `TURSO_DATABASE_URL` | ✅ | - | Turso 数据库连接地址。本地开发用 `file:./local.db`，线上用 Turso 提供的 `libsql://` 地址 |
-| `TURSO_AUTH_TOKEN` | 线上必填 | - | Turso 数据库认证 Token。本地 SQLite 不需要 |
+| `LIBSQL_URL` | ✅ | - | Turso 数据库连接地址。本地开发用 `file:./local.db`，线上用 Turso 提供的 `libsql://` 地址 |
+| `LIBSQL_AUTH_TOKEN` | 线上必填 | - | Turso 数据库认证 Token。本地 SQLite 不需要 |
 | `JWT_SECRET` | ✅ | - | JWT 签名密钥，用于生成登录 Token |
 | `ADMIN_EMAIL` | ✅ | - | 管理员登录邮箱，与 `ADMIN_PASSWORD` 配合使用 |
 | `ADMIN_PASSWORD` | ✅ | - | 管理员登录密码 |
 | `JWT_EXPIRES_IN` | ❌ | `7d` | Token 过期时间 |
 | `PORT` | ❌ | `3000` | 本地开发端口号 |
 | `NODE_ENV` | ❌ | `development` | 运行环境 |
+| `APP_DOMAIN` | ❌ | `` | 应用域名，用于 CORS 允许和 Cookie Secure 设置。部署时填写你的域名（不含 https://） |
+| `TZ_OFFSET` | ❌ | `8` | 时区偏移小时数，用于 SQL 查询中的"今日"统计。UTC+8 填 8，UTC-5 填 -5 |
+| `FRONTEND_URL` | ❌ | - | 前端开发服务器地址，本地开发时使用 |
+| `LOG_LEVEL` | ❌ | `info` | 日志级别（debug/info/warn/error） |
 
 ## API使用
 
@@ -295,7 +309,7 @@ curl -X GET http://localhost:3000/api/monitor/stats \
 │   │   ├── routerService.js    # 路由服务
 │   │   └── costService.js      # 费用计算服务
 │   ├── config/            # 配置文件
-│   │   └── turso.js       # Turso数据库配置
+│   │   └── database.js    # 数据库配置
 │   ├── middleware/        # 中间件
 │   │   ├── auth.js        # JWT认证
 │   │   └── rateLimit.js   # 限流
@@ -310,7 +324,8 @@ curl -X GET http://localhost:3000/api/monitor/stats \
 │   │   ├── db.js          # 数据库工具
 │   │   ├── keyRotation.js # Key轮询
 │   │   ├── cache.js       # 缓存
-│   │   └── retry.js       # 重试
+│   │   ├── retry.js       # 重试
+│   │   └── logger.js      # 日志
 │   └── server.js          # 主服务
 ├── frontend/              # React前端
 │   └── src/
