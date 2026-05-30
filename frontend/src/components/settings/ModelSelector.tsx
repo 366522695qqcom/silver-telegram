@@ -44,6 +44,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = React.memo(({
   const [searchExpanded, setSearchExpanded] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+
   useEffect(() => {
     if (searchExpanded && searchInputRef.current) {
       searchInputRef.current.focus();
