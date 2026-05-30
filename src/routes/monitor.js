@@ -42,7 +42,7 @@ router.get('/realtime', authenticateToken, async (req, res) => {
     monitorCache.set(cacheKey, data);
     res.json(data);
   } catch (error) {
-    res.json({
+    res.status(500).json({
       totalRequests: 0,
       successCount: 0,
       errorCount: 0,

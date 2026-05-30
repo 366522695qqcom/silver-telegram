@@ -4,8 +4,22 @@ import { providersAPI, apiKeysAPI, monitorAPI } from '@/services/api';
 import { Activity, Server, Key, Clock, TrendingUp, Zap, FlaskConical, RefreshCw } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 
+const COLORS = ['#0071e3', '#34c759', '#ff9500', '#ff3b30', '#af52de'];
+
+const TOOLTIP_CONTENT_STYLE = {
+  backgroundColor: 'white',
+  border: '1px solid #e5e5ea',
+  borderRadius: '8px',
+  boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+  fontSize: '12px',
+};
+
+const TOOLTIP_LABEL_STYLE = { color: '#1d1d1f', fontWeight: 500 };
+
+const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 export default function Home() {
-  const { providers, apiKeys, setProviders, setApiKeys } = useStore();
+  const { providers, apiKeys } = useStore();
   const [stats, setStats] = useState<{
     total_requests: number;
     today_requests: number;
@@ -58,12 +72,12 @@ export default function Home() {
         providersAPI.getAll(),
         apiKeysAPI.getAll(),
       ]);
-      setProviders(prov);
-      setApiKeys(keys);
+      useStore.getState().setProviders(prov);
+      useStore.getState().setApiKeys(keys);
     } catch (error) {
       console.error('Failed to fetch config data:', error);
     }
-  }, [setProviders, setApiKeys]);
+  }, []);
 
   const handleRefresh = async () => {
     if (refreshing) return;
@@ -104,7 +118,27 @@ export default function Home() {
     };
   }, [fetchMonitorData, fetchConfigData]);
 
-  const COLORS = ['#0071e3', '#34c759', '#ff9500', '#ff3b30', '#af52de'];
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (monitorIntervalRef.current) {
+          clearInterval(monitorIntervalRef.current);
+          monitorIntervalRef.current = null;
+        }
+        if (configIntervalRef.current) {
+          clearInterval(configIntervalRef.current);
+          configIntervalRef.current = null;
+        }
+      } else {
+        fetchMonitorData();
+        fetchConfigData();
+        monitorIntervalRef.current = setInterval(fetchMonitorData, 10000);
+        configIntervalRef.current = setInterval(fetchConfigData, 30000);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [fetchMonitorData, fetchConfigData]);
 
   const statsCards = [
     {
@@ -178,14 +212,8 @@ export default function Home() {
                 <XAxis dataKey="day" tick={{ fill: '#86868b', fontSize: 12 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: '#86868b', fontSize: 12 }} axisLine={false} tickLine={false} />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'white',
-                    border: '1px solid #e5e5ea',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-                    fontSize: '12px',
-                  }}
-                  labelStyle={{ color: '#1d1d1f', fontWeight: 500 }}
+                  contentStyle={TOOLTIP_CONTENT_STYLE}
+                  labelStyle={TOOLTIP_LABEL_STYLE}
                 />
                 <Line
                   type="monotone"
@@ -194,6 +222,7 @@ export default function Home() {
                   strokeWidth={2}
                   dot={{ fill: '#0071e3', strokeWidth: 0, r: 4 }}
                   activeDot={{ r: 6, fill: '#0071e3', strokeWidth: 0 }}
+                  isAnimationActive={!prefersReducedMotion}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -208,7 +237,7 @@ export default function Home() {
                 className="apple-btn-primary text-xs px-4 py-2 flex items-center gap-1.5"
               >
                 <FlaskConical className="w-3.5 h-3.5" />
-                {sendingTest ? '发送中...' : '发送测试请求'}
+                {sendingTest ? '发送中…' : '发送测试请求'}
               </button>
             </div>
           )}
@@ -227,15 +256,9 @@ export default function Home() {
                 <XAxis type="number" tick={{ fill: '#86868b', fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis dataKey="provider" type="category" width={80} tick={{ fill: '#1d1d1f', fontSize: 12 }} axisLine={false} tickLine={false} />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'white',
-                    border: '1px solid #e5e5ea',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-                    fontSize: '12px',
-                  }}
+                  contentStyle={TOOLTIP_CONTENT_STYLE}
                 />
-                <Bar dataKey="count" radius={[0, 6, 6, 0]} maxBarSize={20}>
+                <Bar dataKey="count" radius={[0, 6, 6, 0]} maxBarSize={20} isAnimationActive={!prefersReducedMotion}>
                   {stats.top_providers.slice(0, 5).map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
@@ -253,7 +276,7 @@ export default function Home() {
                 className="apple-btn-primary text-xs px-4 py-2 flex items-center gap-1.5"
               >
                 <FlaskConical className="w-3.5 h-3.5" />
-                {sendingTest ? '发送中...' : '发送测试请求'}
+                {sendingTest ? '发送中…' : '发送测试请求'}
               </button>
             </div>
           )}

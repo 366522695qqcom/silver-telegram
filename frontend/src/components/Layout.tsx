@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
   Activity,
@@ -18,20 +18,20 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
-export default function Layout({ children }: LayoutProps) {
+const navItems = [
+  { icon: LayoutDashboard, path: '/home', label: '仪表盘' },
+  { icon: Server, path: '/settings', label: '提供商管理' },
+  { icon: Key, path: '/api-keys', label: 'API密钥' },
+  { icon: Activity, path: '/monitor', label: '实时监控' },
+  { icon: FileText, path: '/audit-logs', label: '审计日志' },
+];
+
+const Layout = React.memo(function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, user } = useStore();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  const navItems = [
-    { icon: LayoutDashboard, path: '/home', label: '仪表盘' },
-    { icon: Server, path: '/settings', label: '提供商管理' },
-    { icon: Key, path: '/api-keys', label: 'API密钥' },
-    { icon: Activity, path: '/monitor', label: '实时监控' },
-    { icon: FileText, path: '/audit-logs', label: '审计日志' },
-  ];
 
   const handleLogout = () => {
     logout();
@@ -71,18 +71,16 @@ export default function Layout({ children }: LayoutProps) {
                 const isActive = currentPath === item.path;
                 return (
                   <li key={item.path} className="relative group">
-                    <button
-                      onClick={() => {
-                        navigate(item.path);
-                        setMobileMenuOpen(false);
-                      }}
+                    <Link
+                      to={item.path}
+                      onClick={() => setMobileMenuOpen(false)}
                       className={`apple-nav-item w-full ${
                         isActive ? 'apple-nav-item-active' : 'apple-nav-item-default'
                       } ${collapsed ? 'justify-center px-0' : ''}`}
                     >
                       <Icon className="w-[18px] h-[18px] flex-shrink-0" />
                       {!collapsed && <span>{item.label}</span>}
-                    </button>
+                    </Link>
                     <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1.5 bg-gray-900 text-white text-xs font-medium rounded-lg whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-150 z-[60] shadow-lg">
                       {item.label}
                       <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900" />
@@ -121,6 +119,7 @@ export default function Layout({ children }: LayoutProps) {
             <div className="relative group">
               <button
                 onClick={handleLogout}
+                aria-label="退出登录"
                 className={`apple-nav-item apple-nav-item-default w-full text-red-500 hover:bg-red-50 hover:text-red-600 ${
                   collapsed ? 'justify-center px-0' : ''
                 }`}
@@ -137,6 +136,7 @@ export default function Layout({ children }: LayoutProps) {
             <div className="relative group">
               <button
                 onClick={() => setCollapsed(!collapsed)}
+                aria-label={collapsed ? '展开侧边栏' : '收起侧边栏'}
                 className="hidden md:flex apple-nav-item apple-nav-item-default w-full mt-2 justify-center px-0"
               >
                 {collapsed ? (
@@ -158,6 +158,7 @@ export default function Layout({ children }: LayoutProps) {
         <header className="h-14 bg-white border-b border-apple-border-light flex items-center justify-between px-6 flex-shrink-0">
           <button
             onClick={() => setMobileMenuOpen(true)}
+            aria-label="打开菜单"
             className="md:hidden p-2 -ml-2 rounded-apple-sm hover:bg-gray-100 transition-colors"
           >
             <Menu className="w-5 h-5 text-apple-text" />
@@ -188,6 +189,7 @@ export default function Layout({ children }: LayoutProps) {
           />
           <button
             onClick={() => setMobileMenuOpen(false)}
+            aria-label="关闭菜单"
             className="fixed top-4 right-4 z-50 p-2 bg-white rounded-full shadow-lg md:hidden"
           >
             <X className="w-5 h-5 text-apple-text" />
@@ -196,4 +198,6 @@ export default function Layout({ children }: LayoutProps) {
       )}
     </div>
   );
-}
+});
+
+export default Layout;

@@ -42,6 +42,22 @@ export default function Monitor() {
     };
   }, [fetchAllData]);
 
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+      } else {
+        fetchAllData();
+        intervalRef.current = setInterval(fetchAllData, 5000);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [fetchAllData]);
+
   const refreshData = async () => {
     setIsLoading(true);
     await fetchAllData();

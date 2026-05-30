@@ -1,4 +1,5 @@
 const NodeCache = require('node-cache');
+const crypto = require('crypto');
 
 const cache = new NodeCache({
   stdTTL: 3600,
@@ -30,6 +31,14 @@ class CacheService {
     const { model, messages, max_tokens, temperature } = requestData;
     const messagesStr = JSON.stringify(messages);
     return `${model}_${max_tokens}_${temperature}_${messagesStr}`;
+  }
+
+  generateHashKey(data) {
+    try {
+      return crypto.createHash('sha256').update(JSON.stringify(data)).digest('hex');
+    } catch {
+      return JSON.stringify(data);
+    }
   }
 }
 

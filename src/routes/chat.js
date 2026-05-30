@@ -115,7 +115,7 @@ async function handleChatCompletion(req, res) {
       );
 
       await routerService.recordProviderStatus(provider.id, true, latency);
-      res.json(result.data);
+      res.json({ ...result.data, cost });
     } else {
       await run(
         'INSERT INTO requests (id, api_key_id, provider, model, status_code, latency, error_message) VALUES (?, ?, ?, ?, ?, ?, ?)',

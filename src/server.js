@@ -41,7 +41,38 @@ app.use(cors({
   credentials: true,
 }));
 
-if (!isVercel) {
+if (isVercel) {
+  const tokenBuckets = new Map();
+  const RATE_LIMIT_WINDOW = 15 * 60 * 1000;
+  const RATE_LIMIT_MAX = 100;
+
+  app.use('/api/', (req, res, next) => {
+    const ip = req.headers['x-forwarded-for'] || req.ip || 'unknown';
+    const now = Date.now();
+
+    let bucket = tokenBuckets.get(ip);
+    if (!bucket || now - bucket.lastReset > RATE_LIMIT_WINDOW) {
+      bucket = { tokens: RATE_LIMIT_MAX, lastReset: now };
+      tokenBuckets.set(ip, bucket);
+    }
+
+    if (bucket.tokens <= 0) {
+      return res.status(429).json({ error: 'Too many requests, please try again later.' });
+    }
+
+    bucket.tokens--;
+    next();
+  });
+
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, bucket] of tokenBuckets) {
+      if (now - bucket.lastReset > RATE_LIMIT_WINDOW) {
+        tokenBuckets.delete(ip);
+      }
+    }
+  }, RATE_LIMIT_WINDOW);
+} else {
   const rateLimit = require('express-rate-limit');
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -51,7 +82,7 @@ if (!isVercel) {
   app.use('/api/', apiLimiter);
 }
 
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
@@ -243,6 +274,7 @@ app.post('/api/test-request', async (req, res) => {
       res.json({
         success: true,
         message: 'Simulated test request recorded',
+        cost: Number(cost),
         request: { id: id.substring(0, 8), provider, model: fakeModel, status_code: statusCode, latency, prompt_tokens: promptTokens, completion_tokens: completionTokens, cost: Number(cost) },
       });
     }
@@ -311,8 +343,19 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Payload too large' });
+  }
+  next(err);
+});
+
+app.use((err, req, res, next) => {
   console.error('Unhandled error:', err.message || err);
-  res.status(500).json({ error: 'Internal server error' });
+  if (process.env.NODE_ENV === 'production') {
+    res.status(500).json({ error: 'Internal server error' });
+  } else {
+    res.status(500).json({ error: err.message || 'Internal server error' });
+  }
 });
 
 if (!isVercel) {

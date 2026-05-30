@@ -11,6 +11,18 @@ const ApiKeys = React.lazy(() => import('@/pages/ApiKeys'));
 const Monitor = React.lazy(() => import('@/pages/Monitor'));
 const AuditLogs = React.lazy(() => import('@/pages/AuditLogs'));
 
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="w-8 h-8 border-2 border-apple-blue border-t-transparent rounded-full animate-spin" />
+  </div>
+);
+
+const CHECKING_AUTH_LOADER = (
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="w-8 h-8 border-2 border-apple-blue border-t-transparent rounded-full animate-spin" />
+  </div>
+);
+
 export default function App() {
   const { setUser, setIsAuthenticated, isAuthenticated, setIsLoading } = useStore();
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -38,20 +50,12 @@ export default function App() {
   }, [setUser, setIsAuthenticated, setIsLoading]);
 
   if (checkingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-apple-blue border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return CHECKING_AUTH_LOADER;
   }
 
   return (
     <BrowserRouter>
-      <Suspense fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-apple-blue border-t-transparent rounded-full animate-spin" />
-        </div>
-      }>
+      <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/" element={
           isAuthenticated ? <Navigate to="/home" /> : <Login />
