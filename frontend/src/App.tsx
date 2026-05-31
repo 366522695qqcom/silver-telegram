@@ -5,6 +5,8 @@ import { authAPI } from '@/services/api';
 import Login from '@/pages/Login';
 import Home from '@/pages/Home';
 import Layout from '@/components/Layout';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import NotFound from '@/pages/NotFound';
 
 const Settings = React.lazy(() => import('@/pages/Settings'));
 const ApiKeys = React.lazy(() => import('@/pages/ApiKeys'));
@@ -12,12 +14,6 @@ const Monitor = React.lazy(() => import('@/pages/Monitor'));
 const AuditLogs = React.lazy(() => import('@/pages/AuditLogs'));
 
 const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center">
-    <div className="w-8 h-8 border-2 border-apple-blue border-t-transparent rounded-full animate-spin" />
-  </div>
-);
-
-const CHECKING_AUTH_LOADER = (
   <div className="min-h-screen flex items-center justify-center">
     <div className="w-8 h-8 border-2 border-apple-blue border-t-transparent rounded-full animate-spin" />
   </div>
@@ -50,11 +46,12 @@ export default function App() {
   }, [setUser, setIsAuthenticated, setIsLoading]);
 
   if (checkingAuth) {
-    return CHECKING_AUTH_LOADER;
+    return <PageLoader />;
   }
 
   return (
     <BrowserRouter>
+      <ErrorBoundary>
       <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/" element={
@@ -105,8 +102,10 @@ export default function App() {
             <Navigate to="/" />
           )}
       />
+        <Route path="*" element={<NotFound />} />
       </Routes>
       </Suspense>
+      </ErrorBoundary>
     </BrowserRouter>
   );
 }

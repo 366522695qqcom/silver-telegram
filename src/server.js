@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const compression = require('compression');
 const cookieParser = require('cookie-parser');
 const { initializeDatabase, query, run } = require('./utils/db');
 
@@ -40,51 +41,15 @@ app.use((req, res, next) => {
 app.use(helmet({
   contentSecurityPolicy: false,
 }));
+app.use(compression());
+
 app.use(cors({
   origin: corsOrigins,
   credentials: true,
 }));
 
-if (isVercel) {
-  const tokenBuckets = new Map();
-  const RATE_LIMIT_WINDOW = 15 * 60 * 1000;
-  const RATE_LIMIT_MAX = 100;
-
-  app.use('/api/', (req, res, next) => {
-    const ip = req.headers['x-forwarded-for'] || req.ip || 'unknown';
-    const now = Date.now();
-
-    let bucket = tokenBuckets.get(ip);
-    if (!bucket || now - bucket.lastReset > RATE_LIMIT_WINDOW) {
-      bucket = { tokens: RATE_LIMIT_MAX, lastReset: now };
-      tokenBuckets.set(ip, bucket);
-    }
-
-    if (bucket.tokens <= 0) {
-      return res.status(429).json({ error: 'Too many requests, please try again later.' });
-    }
-
-    bucket.tokens--;
-    next();
-  });
-
-  setInterval(() => {
-    const now = Date.now();
-    for (const [ip, bucket] of tokenBuckets) {
-      if (now - bucket.lastReset > RATE_LIMIT_WINDOW) {
-        tokenBuckets.delete(ip);
-      }
-    }
-  }, RATE_LIMIT_WINDOW);
-} else {
-  const rateLimit = require('express-rate-limit');
-  const apiLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 100,
-    message: 'Too many requests from this IP, please try again later.',
-  });
-  app.use('/api/', apiLimiter);
-}
+const { apiLimiter } = require('./middleware/rateLimit');
+app.use('/api/', apiLimiter);
 
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -111,7 +76,7 @@ const startDbInit = () => {
   return dbInitPromise;
 };
 
-app.get('/api/debug-keys', async (req, res) => {
+app.get('/api/debug-keys', require('./middleware/auth').authenticateToken, async (req, res) => {
   try {
     const [keys, reqCount, sampleReqs] = await Promise.all([
       query('SELECT id, name, enabled FROM api_keys LIMIT 10'),
@@ -133,7 +98,7 @@ app.get('/api/debug-keys', async (req, res) => {
   }
 });
 
-app.get('/api/debug-stats', async (req, res) => {
+app.get('/api/debug-stats', require('./middleware/auth').authenticateToken, async (req, res) => {
   try {
     startDbInit();
     await Promise.race([
@@ -350,10 +315,6 @@ app.use((err, req, res, next) => {
   if (err.type === 'entity.too.large') {
     return res.status(413).json({ error: 'Payload too large' });
   }
-  next(err);
-});
-
-app.use((err, req, res, next) => {
   console.error('Unhandled error:', err.message || err);
   if (process.env.NODE_ENV === 'production') {
     res.status(500).json({ error: 'Internal server error' });

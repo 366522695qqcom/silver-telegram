@@ -2,6 +2,7 @@ const express = require('express');
 const { query } = require('../utils/db');
 const { authenticateToken } = require('../middleware/auth');
 const NodeCache = require('node-cache');
+const TZ_OFFSET = parseInt(process.env.TZ_OFFSET || '8', 10);
 
 const TZ_OFFSET = parseInt(process.env.TZ_OFFSET || '8', 10);
 
@@ -163,22 +164,6 @@ router.get('/daily', authenticateToken, async (req, res) => {
 });
 
 router.get('/requests', authenticateToken, async (req, res) => {
-  try {
-    const { limit = 50, page = 1 } = req.query;
-    const offset = (Number(page) - 1) * Number(limit);
-
-    const result = await query(
-      'SELECT id, provider, model, status_code, latency, prompt_tokens, completion_tokens, cost, error_message, created_at FROM requests WHERE api_key_id IN (SELECT id FROM api_keys WHERE user_id = ?) ORDER BY created_at DESC LIMIT ? OFFSET ?',
-      [req.user.id, Number(limit), offset]
-    );
-
-    res.json(result.rows);
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-router.get('/history', authenticateToken, async (req, res) => {
   try {
     const { limit = 50, page = 1 } = req.query;
     const offset = (Number(page) - 1) * Number(limit);
