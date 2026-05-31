@@ -4,8 +4,6 @@ const { authenticateToken } = require('../middleware/auth');
 const NodeCache = require('node-cache');
 const TZ_OFFSET = parseInt(process.env.TZ_OFFSET || '8', 10);
 
-const TZ_OFFSET = parseInt(process.env.TZ_OFFSET || '8', 10);
-
 const monitorCache = new NodeCache({
   stdTTL: 3,
   checkperiod: 10,
